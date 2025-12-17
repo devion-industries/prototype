@@ -12,3 +12,7 @@ coverage
 .vscode
 .idea
 .DS_Store
+
+# KEEP THESE FOR DOCKER BUILD
+!package-lock.json
+!package.json
