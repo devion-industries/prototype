@@ -5,16 +5,35 @@ class Database {
   private pool: Pool;
 
   constructor() {
+    // Determine if we need SSL based on the connection string
+    const isRemote = config.DATABASE_URL.includes('supabase.co') || 
+                     config.DATABASE_URL.includes('supabase.com');
+    
     this.pool = new Pool({
       connectionString: config.DATABASE_URL,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
+      // SSL configuration for remote databases (Supabase)
+      ssl: isRemote ? { rejectUnauthorized: false } : false,
     });
 
     this.pool.on('error', (err) => {
       console.error('Unexpected database pool error:', err);
     });
+
+    // Test connection on startup
+    this.healthCheck()
+      .then(isHealthy => {
+        if (isHealthy) {
+          console.log('✅ Database connected');
+        } else {
+          console.error('❌ Database connection failed');
+        }
+      })
+      .catch(err => {
+        console.error('❌ Database connection error:', err.message);
+      });
   }
 
   async query(text: string, params?: any[]): Promise<QueryResult> {
