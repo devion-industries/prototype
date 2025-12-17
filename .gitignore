@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
-package-lock.json
+# package-lock.json - KEEPING THIS FOR DEPLOYMENT
+
+# Environment files - NEVER COMMIT THESE!
+.env
+.env.local
+.env.*.local
 yarn.lock
 pnpm-lock.yaml
 
