@@ -139,3 +139,4 @@ function calculateConfidence(
   return Math.max(0, Math.min(1, score));
 }
 
+

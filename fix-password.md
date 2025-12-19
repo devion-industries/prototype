@@ -74,3 +74,4 @@ Should show: `"database":"connected"` ✅
 
 **Most likely issue:** You need to reset the password in Supabase Dashboard and copy the new one into your .env file.
 
+

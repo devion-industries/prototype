@@ -121,3 +121,4 @@ If the connection pooler URL doesn't work:
 
 **Summary:** Everything is configured correctly! Just update DATABASE_URL to use the connection pooler and you're good to go! 🚀
 
+

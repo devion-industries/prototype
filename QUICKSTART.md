@@ -166,3 +166,4 @@ See `DEPLOYMENT.md` for Railway, Docker, and production setup.
 
 **Estimated time to first analysis: 5 minutes setup + 2-5 minutes per repo analysis**
 
+

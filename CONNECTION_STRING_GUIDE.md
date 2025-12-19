@@ -119,3 +119,4 @@ If you're not sure about your password:
 
 **Most Common Fix**: Make sure your password is correct and matches what's in Supabase Dashboard!
 
+

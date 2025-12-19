@@ -5,11 +5,72 @@ import { fetchAuthenticatedUser, fetchUserRepos } from '../github/fetchers';
 import { encrypt } from '../utils/encryption';
 import db from '../db/client';
 import { schemas } from '../utils/validation';
+import config from '../config';
 
 export default async function githubRoutes(fastify: FastifyInstance) {
   /**
+   * GET /github/auth
+   * Returns GitHub OAuth URL for frontend to redirect to
+   */
+  fastify.get('/github/auth', requireAuth(), async (request, reply) => {
+    const req = request as AuthenticatedRequest;
+    
+    // Store userId in state for callback verification
+    const state = Buffer.from(JSON.stringify({ userId: req.userId })).toString('base64');
+    
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${config.GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(config.GITHUB_CALLBACK_URL)}&scope=user:email,read:user,repo&state=${state}`;
+    
+    return reply.send({ url: githubAuthUrl });
+  });
+
+  /**
+   * GET /github/callback
+   * Handles GitHub OAuth callback
+   */
+  fastify.get('/github/callback', async (request, reply) => {
+    const { code, state } = request.query as { code?: string; state?: string };
+    
+    if (!code || !state) {
+      return reply.status(400).send({ error: 'Missing code or state' });
+    }
+
+    try {
+      // Decode state to get userId
+      const { userId } = JSON.parse(Buffer.from(state, 'base64').toString());
+      
+      if (!userId) {
+        return reply.status(400).send({ error: 'Invalid state' });
+      }
+
+      // Exchange code for token
+      const accessToken = await exchangeCodeForToken(code);
+
+      // Get GitHub user info
+      const octokit = createGitHubClient(accessToken);
+      const githubUser = await fetchAuthenticatedUser(octokit);
+
+      // Encrypt and store token
+      const encryptedToken = encrypt(accessToken);
+
+      await db.query(
+        `INSERT INTO github_accounts (user_id, github_user_id, github_login, access_token_encrypted)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id, github_user_id)
+         DO UPDATE SET access_token_encrypted = $4`,
+        [userId, githubUser.id.toString(), githubUser.login, encryptedToken]
+      );
+
+      // Redirect back to frontend dashboard with success
+      return reply.redirect(`${config.FRONTEND_URL}/dashboard?github_connected=true`);
+    } catch (error: any) {
+      console.error('GitHub callback error:', error);
+      return reply.redirect(`${config.FRONTEND_URL}/dashboard?github_error=${encodeURIComponent(error.message)}`);
+    }
+  });
+
+  /**
    * POST /github/connect
-   * Connects GitHub account via OAuth
+   * Connects GitHub account via OAuth (for direct token submission)
    */
   fastify.post('/github/connect', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
@@ -90,4 +151,5 @@ export default async function githubRoutes(fastify: FastifyInstance) {
     }
   });
 }
+
 

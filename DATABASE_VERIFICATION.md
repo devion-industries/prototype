@@ -164,3 +164,4 @@ SELECT * FROM pg_stat_activity WHERE datname = 'postgres';
 **Ready for Development:** ✅ Yes  
 **Ready for Production:** ✅ Yes (after adding credentials)
 
+
