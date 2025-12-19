@@ -28,17 +28,26 @@ export default async function githubRoutes(fastify: FastifyInstance) {
    * Handles GitHub OAuth callback
    */
   fastify.get('/github/callback', async (request, reply) => {
+    console.log('GitHub callback received:', {
+      query: request.query,
+      headers: request.headers,
+    });
+
     const { code, state } = request.query as { code?: string; state?: string };
     
     if (!code || !state) {
+      console.error('Missing code or state:', { code: !!code, state: !!state });
       return reply.status(400).send({ error: 'Missing code or state' });
     }
 
     try {
+      console.log('Decoding state:', state);
       // Decode state to get userId
       const { userId } = JSON.parse(Buffer.from(state, 'base64').toString());
+      console.log('Decoded userId:', userId);
       
       if (!userId) {
+        console.error('Invalid state - no userId');
         return reply.status(400).send({ error: 'Invalid state' });
       }
 
@@ -60,10 +69,17 @@ export default async function githubRoutes(fastify: FastifyInstance) {
         [userId, githubUser.id.toString(), githubUser.login, encryptedToken]
       );
 
+      console.log('GitHub OAuth successful, redirecting to frontend');
       // Redirect back to frontend dashboard with success
       return reply.redirect(`${config.FRONTEND_URL}/dashboard?github_connected=true`);
     } catch (error: any) {
       console.error('GitHub callback error:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        response: error.response?.data,
+      });
       return reply.redirect(`${config.FRONTEND_URL}/dashboard?github_error=${encodeURIComponent(error.message)}`);
     }
   });
