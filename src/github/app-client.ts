@@ -1,12 +1,15 @@
 import config from '../config';
-import { App } from 'octokit';
+import type { App } from 'octokit';
 
 // GitHub App instance (singleton)
-let octokitAppInstance: App | null = null;
+let octokitAppInstance: any = null;
 
-function getGitHubApp() {
+async function getGitHubApp(): Promise<App> {
   if (!octokitAppInstance) {
-    octokitAppInstance = new App({
+    // Use eval('import(...)') to prevent TS from transpiling this to require()
+    // This is the only way to load ESM modules in a CommonJS-compiled project
+    const { App: OctokitApp } = await (eval('import("octokit")') as Promise<any>);
+    octokitAppInstance = new OctokitApp({
       appId: config.GITHUB_APP_ID,
       privateKey: config.GITHUB_PRIVATE_KEY,
       webhooks: {
@@ -28,7 +31,7 @@ export const getApp = async (): Promise<App> => getGitHubApp();
  * @returns Authenticated Octokit instance
  */
 export async function getInstallationOctokit(installationId: number): Promise<any> {
-  const app = getGitHubApp();
+  const app = await getGitHubApp();
   // Using the installation Octokit from the App instance
   const octokit = await app.getInstallationOctokit(installationId);
   return octokit;
