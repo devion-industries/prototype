@@ -51,7 +51,7 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
       
       if (!userId) {
         console.error('Invalid state - no userId');
-        return reply.redirect(`${config.FRONTEND_URL}/dashboard?error=invalid_state`);
+        return reply.redirect(`${config.FRONTEND_URL}/onboarding?error=invalid_state`);
       }
 
       // Get GitHub App instance
@@ -88,9 +88,10 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
           user_id, 
           installation_id, 
           github_user_id, 
-          github_login
+          github_login,
+          updated_at
         )
-        VALUES ($1, $2, $3, $4)
+        VALUES ($1, $2, $3, $4, NOW())
         ON CONFLICT (user_id) 
         DO UPDATE SET 
           installation_id = $2,
@@ -120,8 +121,9 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         message: error.message,
         stack: error.stack,
       });
+      // Redirect to onboarding with error message so user knows what happened
       return reply.redirect(
-        `${config.FRONTEND_URL}/dashboard?error=${encodeURIComponent(error.message)}`
+        `${config.FRONTEND_URL}/onboarding?error=${encodeURIComponent(error.message)}`
       );
     }
   });

@@ -7,10 +7,20 @@ export function createRedisConnection(): IORedis {
   const redis = new IORedis(config.REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    connectTimeout: 10000, // 10 seconds
+    retryStrategy(times) {
+      const delay = Math.min(times * 50, 2000);
+      return delay;
+    },
   });
 
   redis.on('error', (error) => {
-    console.error('Redis connection error:', error);
+    // Only log if it's not a common timeout error to reduce log spam
+    if (error.message?.includes('ETIMEDOUT')) {
+      console.warn('⚠️ Redis connection timeout, retrying...');
+    } else {
+      console.error('Redis connection error:', error);
+    }
   });
 
   redis.on('connect', () => {

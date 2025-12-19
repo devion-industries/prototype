@@ -5,9 +5,8 @@ let octokitAppInstance: any = null;
 
 async function getGitHubApp() {
   if (!octokitAppInstance) {
-    // Use dynamic import via eval to prevent TypeScript from transpiling it to require()
-    // The 'octokit' package has built-in App support
-    const { App } = await (eval('import("octokit")') as Promise<any>);
+    // Dynamic import the 'octokit' package which has built-in App support
+    const { App } = await import('octokit');
     octokitAppInstance = new App({
       appId: config.GITHUB_APP_ID,
       privateKey: config.GITHUB_PRIVATE_KEY,
