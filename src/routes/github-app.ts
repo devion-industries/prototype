@@ -43,9 +43,11 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      console.log('Decoding state:', state);
       // Decode state to get userId
-      const { userId } = JSON.parse(Buffer.from(state, 'base64').toString());
-      console.log('Decoded userId:', userId);
+      const decodedState = JSON.parse(Buffer.from(state, 'base64').toString());
+      const { userId } = decodedState;
+      console.log('Decoded userId from state:', userId);
       
       if (!userId) {
         console.error('Invalid state - no userId');
@@ -55,6 +57,7 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
       // Get GitHub App instance
       const githubApp = await getApp();
       
+      console.log('Fetching installation details for ID:', installation_id);
       // Get installation details
       const { data: installation } = await githubApp.octokit.request(
         'GET /app/installations/{installation_id}',
@@ -69,15 +72,17 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         throw new Error('Installation account is null');
       }
 
-      const accountLogin = 'login' in account ? account.login : account.slug;
+      const accountLogin = 'login' in account ? account.login : (account as any).slug;
       const accountId = account.id;
 
-      console.log('Installation details:', {
-        id: installation.id,
-        account: accountLogin,
+      console.log('Saving installation to DB:', {
+        userId,
+        installationId: installation.id,
+        githubLogin: accountLogin,
       });
 
       // Store installation_id in database
+      // We use user_id as the unique key to ensure 1 account per user
       await db.query(
         `INSERT INTO github_accounts (
           user_id, 
@@ -86,8 +91,12 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
           github_login
         )
         VALUES ($1, $2, $3, $4)
-        ON CONFLICT (user_id, github_user_id)
-        DO UPDATE SET installation_id = $2`,
+        ON CONFLICT (user_id) 
+        DO UPDATE SET 
+          installation_id = $2,
+          github_user_id = $3,
+          github_login = $4,
+          updated_at = NOW()`,
         [
           userId,
           installation.id,
@@ -96,16 +105,20 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         ]
       );
 
-      console.log('GitHub App installation successful');
+      console.log('Database updated successfully');
       
       // Redirect back to frontend with success
       const redirectUrl = setup_action === 'install' 
         ? `${config.FRONTEND_URL}/onboarding?github_connected=true`
         : `${config.FRONTEND_URL}/dashboard?github_connected=true`;
       
+      console.log('Redirecting user to:', redirectUrl);
       return reply.redirect(redirectUrl);
     } catch (error: any) {
-      console.error('GitHub App callback error:', error);
+      console.error('GitHub App callback error details:', {
+        message: error.message,
+        stack: error.stack,
+      });
       return reply.redirect(
         `${config.FRONTEND_URL}/dashboard?error=${encodeURIComponent(error.message)}`
       );
