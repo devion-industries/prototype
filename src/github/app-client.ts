@@ -1,12 +1,11 @@
 import config from '../config';
+import { App } from 'octokit';
 
-// Lazy load Octokit (ESM module)
-let octokitAppInstance: any = null;
+// GitHub App instance (singleton)
+let octokitAppInstance: App | null = null;
 
-async function getGitHubApp() {
+function getGitHubApp() {
   if (!octokitAppInstance) {
-    // Dynamic import the 'octokit' package which has built-in App support
-    const { App } = await import('octokit');
     octokitAppInstance = new App({
       appId: config.GITHUB_APP_ID,
       privateKey: config.GITHUB_PRIVATE_KEY,
@@ -19,9 +18,9 @@ async function getGitHubApp() {
 }
 
 /**
- * GitHub App instance (lazy loaded)
+ * GitHub App instance getter
  */
-export const getApp = getGitHubApp;
+export const getApp = async (): Promise<App> => getGitHubApp();
 
 /**
  * Get Octokit instance for a specific installation
@@ -29,7 +28,7 @@ export const getApp = getGitHubApp;
  * @returns Authenticated Octokit instance
  */
 export async function getInstallationOctokit(installationId: number): Promise<any> {
-  const app = await getGitHubApp();
+  const app = getGitHubApp();
   // Using the installation Octokit from the App instance
   const octokit = await app.getInstallationOctokit(installationId);
   return octokit;
