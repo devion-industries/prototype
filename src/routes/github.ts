@@ -26,8 +26,10 @@ export default async function githubRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /github/callback
-   * Handles GitHub OAuth callback
+   * DEPRECATED: Old OAuth callback - now handled by github-app.ts
+   * This route is disabled to avoid conflicts with GitHub App callback
    */
+  /* DISABLED - Use /github/callback from github-app.ts instead
   fastify.get('/github/callback', async (request, reply) => {
     console.log('GitHub callback received:', {
       query: request.query,
@@ -84,6 +86,7 @@ export default async function githubRoutes(fastify: FastifyInstance) {
       return reply.redirect(`${config.FRONTEND_URL}/dashboard?github_error=${encodeURIComponent(error.message)}`);
     }
   });
+  */
 
   /**
    * POST /github/connect
