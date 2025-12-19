@@ -108,6 +108,7 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
       console.log('Database updated successfully');
       
       // Redirect back to frontend with success
+      // Success redirect
       const redirectUrl = setup_action === 'install' 
         ? `${config.FRONTEND_URL}/onboarding?github_connected=true`
         : `${config.FRONTEND_URL}/dashboard?github_connected=true`;
