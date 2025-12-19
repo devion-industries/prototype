@@ -6,31 +6,6 @@ import db from '../db/client';
 import config from '../config';
 
 export default async function githubAppRoutes(fastify: FastifyInstance) {
-  function isAllowedFrontendOrigin(origin: string | undefined) {
-    if (!origin) return false;
-    if (origin === config.FRONTEND_URL) return true;
-    if (/^https:\/\/repo-insights-[a-z0-9]+-developmentdevion-gmailcoms-projects\.vercel\.app$/.test(origin)) return true;
-    if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
-    return false;
-  }
-
-  function getFrontendOriginFromRequest(request: any): string {
-    const origin = request?.headers?.origin as string | undefined;
-    if (isAllowedFrontendOrigin(origin)) return origin as string;
-
-    const referer = request?.headers?.referer as string | undefined;
-    if (referer) {
-      try {
-        const refOrigin = new URL(referer).origin;
-        if (isAllowedFrontendOrigin(refOrigin)) return refOrigin;
-      } catch {
-        // ignore
-      }
-    }
-
-    return config.FRONTEND_URL;
-  }
-
   /**
    * GET /github/install
    * Returns GitHub App installation URL
@@ -38,9 +13,8 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
   fastify.get('/github/install', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
     
-    // Store userId + frontendOrigin in state for callback verification + correct redirect
-    const frontendOrigin = getFrontendOriginFromRequest(request);
-    const state = Buffer.from(JSON.stringify({ userId: req.userId, frontendOrigin })).toString('base64');
+    // Store userId in state for callback verification
+    const state = Buffer.from(JSON.stringify({ userId: req.userId })).toString('base64');
     
     // GitHub App installation URL (slug from config)
     const installUrl = `https://github.com/apps/${config.GITHUB_APP_SLUG}/installations/new?state=${state}`;
@@ -69,12 +43,8 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Decode state to get userId + frontendOrigin
-      const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
-      const userId = decoded?.userId;
-      const frontendOrigin = isAllowedFrontendOrigin(decoded?.frontendOrigin)
-        ? decoded.frontendOrigin
-        : config.FRONTEND_URL;
+      // Decode state to get userId
+      const { userId } = JSON.parse(Buffer.from(state, 'base64').toString());
       console.log('Decoded userId:', userId);
       
       if (!userId) {
@@ -130,8 +100,8 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
       
       // Redirect back to frontend with success
       const redirectUrl = setup_action === 'install' 
-        ? `${frontendOrigin}/onboarding?github_connected=true`
-        : `${frontendOrigin}/dashboard?github_connected=true`;
+        ? `${config.FRONTEND_URL}/onboarding?github_connected=true`
+        : `${config.FRONTEND_URL}/dashboard?github_connected=true`;
       
       return reply.redirect(redirectUrl);
     } catch (error: any) {
@@ -237,5 +207,6 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     }
   });
 }
+
 
 

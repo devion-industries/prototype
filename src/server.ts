@@ -35,18 +35,28 @@ async function start() {
 
     await fastify.register(cors, {
       origin: (origin, cb) => {
+        // Allow requests with no origin (like mobile apps, direct browser navigations, or redirects)
+        if (!origin) {
+          cb(null, true);
+          return;
+        }
         // Allow configured frontend URL
         if (origin === config.FRONTEND_URL) {
           cb(null, true);
           return;
         }
         // Allow all Vercel preview deployments for this project
-        if (origin && origin.match(/^https:\/\/repo-insights-[a-z0-9]+-developmentdevion-gmailcoms-projects\.vercel\.app$/)) {
+        if (origin.match(/^https:\/\/repo-insights-[a-z0-9]+-developmentdevion-gmailcoms-projects\.vercel\.app$/)) {
+          cb(null, true);
+          return;
+        }
+        // Allow the stable production alias
+        if (origin === 'https://repo-insights-rho.vercel.app') {
           cb(null, true);
           return;
         }
         // Allow localhost for development
-        if (origin && origin.match(/^http:\/\/localhost:\d+$/)) {
+        if (origin.match(/^http:\/\/localhost:\d+$/)) {
           cb(null, true);
           return;
         }

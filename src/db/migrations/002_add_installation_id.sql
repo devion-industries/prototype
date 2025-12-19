@@ -17,3 +17,4 @@ ALTER COLUMN access_token_encrypted DROP NOT NULL;
 COMMENT ON COLUMN github_accounts.installation_id IS 'GitHub App installation ID for this user';
 
 
+
