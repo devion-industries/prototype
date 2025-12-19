@@ -7,6 +7,8 @@ import config from './config';
 // Route imports
 import healthRoutes from './routes/health';
 import githubRoutes from './routes/github';
+import githubAppRoutes from './routes/github-app';
+import webhookRoutes from './routes/webhooks';
 import reposRoutes from './routes/repos';
 import jobsRoutes from './routes/jobs';
 import outputsRoutes from './routes/outputs';
@@ -43,7 +45,9 @@ async function start() {
 
     // Register routes
     await fastify.register(healthRoutes);
-    await fastify.register(githubRoutes);
+    await fastify.register(githubRoutes); // Legacy OAuth routes (will be removed)
+    await fastify.register(githubAppRoutes); // New GitHub App routes
+    await fastify.register(webhookRoutes); // GitHub App webhooks
     await fastify.register(reposRoutes);
     await fastify.register(jobsRoutes);
     await fastify.register(outputsRoutes);

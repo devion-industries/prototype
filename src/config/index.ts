@@ -23,10 +23,15 @@ const configSchema = z.object({
   // OpenAI
   OPENAI_API_KEY: z.string().startsWith('sk-'),
 
-  // GitHub OAuth
-  GITHUB_CLIENT_ID: z.string().min(1),
-  GITHUB_CLIENT_SECRET: z.string().min(1),
-  GITHUB_CALLBACK_URL: z.string().url(),
+  // GitHub OAuth (Legacy - will be removed)
+  GITHUB_CLIENT_ID: z.string().min(1).optional(),
+  GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+  GITHUB_CALLBACK_URL: z.string().url().optional(),
+
+  // GitHub App
+  GITHUB_APP_ID: z.string().min(1),
+  GITHUB_PRIVATE_KEY: z.string().min(1),
+  GITHUB_WEBHOOK_SECRET: z.string().min(1),
 
   // Encryption (32-byte hex key = 64 characters)
   ENCRYPTION_KEY: z.string().length(64),

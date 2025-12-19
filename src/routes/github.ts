@@ -18,7 +18,8 @@ export default async function githubRoutes(fastify: FastifyInstance) {
     // Store userId in state for callback verification
     const state = Buffer.from(JSON.stringify({ userId: req.userId })).toString('base64');
     
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${config.GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(config.GITHUB_CALLBACK_URL)}&scope=user:email,read:user,repo&state=${state}`;
+    const callbackUrl = config.GITHUB_CALLBACK_URL || `${config.FRONTEND_URL}/auth/callback`;
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${config.GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(callbackUrl)}&scope=user:email,read:user,repo&state=${state}`;
     
     return reply.send({ url: githubAuthUrl });
   });
