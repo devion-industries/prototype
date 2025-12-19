@@ -139,8 +139,10 @@ export default async function githubRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /github/repos
-   * Lists repositories accessible to user
+   * DEPRECATED: Old OAuth repos - now handled by github-app.ts
+   * This route is disabled to avoid conflicts with GitHub App repos endpoint
    */
+  /* DISABLED - Use /github/repos from github-app.ts instead
   fastify.get('/github/repos', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
 
@@ -170,6 +172,7 @@ export default async function githubRoutes(fastify: FastifyInstance) {
       });
     }
   });
+  */
 }
 
 
