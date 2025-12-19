@@ -339,24 +339,50 @@ export async function fetchRepoSnapshot(
 /**
  * Lists repositories accessible to the user
  */
-export async function fetchUserRepos(octokit: Octokit): Promise<GitHubRepo[]> {
+export async function fetchUserRepos(octokit: any): Promise<GitHubRepo[]> {
   const result = await githubApiCall(async () => {
-    return await octokit.repos.listForAuthenticatedUser({
+    // Handle both installation Octokit (GitHub App) and user Octokit (OAuth)
+    // Installation Octokit has methods under .rest
+    const octo = octokit.rest || octokit;
+    
+    // For installations, we use listReposAccessibleToInstallation
+    if (octo.apps && typeof octo.apps.listReposAccessibleToInstallation === 'function') {
+      const response = await octo.apps.listReposAccessibleToInstallation({
+        per_page: 100,
+      });
+      return response;
+    }
+    
+    // Fallback to authenticated user (for OAuth)
+    return await octo.repos.listForAuthenticatedUser({
       per_page: 100,
       sort: 'updated',
     });
   });
 
-  return result.data.map(repo => ({
-    id: repo.id,
-    full_name: repo.full_name,
-    default_branch: repo.default_branch,
-    private: repo.private,
-    description: repo.description,
-    language: repo.language,
-    stargazers_count: repo.stargazers_count,
-    updated_at: repo.updated_at || new Date().toISOString(),
-  }));
+  return result.data.repositories ? 
+    // Format for listReposAccessibleToInstallation
+    (result.data.repositories as any[]).map(repo => ({
+      id: repo.id,
+      full_name: repo.full_name,
+      default_branch: repo.default_branch,
+      private: repo.private,
+      description: repo.description,
+      language: repo.language,
+      stargazers_count: repo.stargazers_count,
+      updated_at: repo.updated_at || new Date().toISOString(),
+    })) :
+    // Format for listForAuthenticatedUser
+    (result.data as any[]).map(repo => ({
+      id: repo.id,
+      full_name: repo.full_name,
+      default_branch: repo.default_branch,
+      private: repo.private,
+      description: repo.description,
+      language: repo.language,
+      stargazers_count: repo.stargazers_count,
+      updated_at: repo.updated_at || new Date().toISOString(),
+    }));
 }
 
 /**
