@@ -34,7 +34,25 @@ async function start() {
     });
 
     await fastify.register(cors, {
-      origin: config.FRONTEND_URL,
+      origin: (origin, cb) => {
+        // Allow configured frontend URL
+        if (origin === config.FRONTEND_URL) {
+          cb(null, true);
+          return;
+        }
+        // Allow all Vercel preview deployments for this project
+        if (origin && origin.match(/^https:\/\/repo-insights-[a-z0-9]+-developmentdevion-gmailcoms-projects\.vercel\.app$/)) {
+          cb(null, true);
+          return;
+        }
+        // Allow localhost for development
+        if (origin && origin.match(/^http:\/\/localhost:\d+$/)) {
+          cb(null, true);
+          return;
+        }
+        // Reject all other origins
+        cb(new Error('Not allowed by CORS'), false);
+      },
       credentials: true,
     });
 
