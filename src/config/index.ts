@@ -30,6 +30,7 @@ const configSchema = z.object({
 
   // GitHub App
   GITHUB_APP_ID: z.string().min(1),
+  GITHUB_APP_SLUG: z.string().min(1).default('devion-dev'), // The app's URL slug (e.g., 'devion-dev' from github.com/apps/devion-dev)
   GITHUB_PRIVATE_KEY: z.string().min(1),
   GITHUB_WEBHOOK_SECRET: z.string().min(1),
 

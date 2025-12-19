@@ -16,8 +16,8 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     // Store userId in state for callback verification
     const state = Buffer.from(JSON.stringify({ userId: req.userId })).toString('base64');
     
-    // GitHub App installation URL
-    const installUrl = `https://github.com/apps/maintainer-brief/installations/new?state=${state}`;
+    // GitHub App installation URL (slug from config)
+    const installUrl = `https://github.com/apps/${config.GITHUB_APP_SLUG}/installations/new?state=${state}`;
     
     return reply.send({ url: installUrl });
   });
