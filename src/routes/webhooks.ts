@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { githubApp } from '../github/app-client';
+import { getApp } from '../github/app-client';
 import db from '../db/client';
 
 export default async function webhookRoutes(fastify: FastifyInstance) {
@@ -15,6 +15,9 @@ export default async function webhookRoutes(fastify: FastifyInstance) {
     console.log('Webhook received:', { event, id });
 
     try {
+      // Get GitHub App instance
+      const githubApp = await getApp();
+      
       // Verify webhook signature
       await githubApp.webhooks.verify(
         JSON.stringify(request.body),

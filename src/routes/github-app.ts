@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { AuthenticatedRequest, requireAuth } from '../auth/middleware';
-import { githubApp, getInstallationOctokit, getUserOctokit } from '../github/app-client';
+import { getApp, getInstallationOctokit, getUserOctokit } from '../github/app-client';
 import { fetchUserRepos } from '../github/fetchers';
 import db from '../db/client';
 import config from '../config';
@@ -52,6 +52,9 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         return reply.redirect(`${config.FRONTEND_URL}/dashboard?error=invalid_state`);
       }
 
+      // Get GitHub App instance
+      const githubApp = await getApp();
+      
       // Get installation details
       const { data: installation } = await githubApp.octokit.request(
         'GET /app/installations/{installation_id}',
