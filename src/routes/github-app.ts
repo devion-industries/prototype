@@ -140,10 +140,6 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     const req = request as AuthenticatedRequest;
     const { available } = request.query as { available?: string };
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Endpoint called',data:{userId:req.userId,available},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-
     try {
       // Get user's Octokit instance
       const octokit = await getUserOctokit(req.userId, db);
@@ -158,11 +154,6 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
       // If available=true, return all GitHub repos (for onboarding/selection)
       if (available === 'true') {
         const githubRepos = await fetchUserRepos(octokit as any);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Returning available GitHub repos',data:{count:githubRepos.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
         return reply.send({ repos: githubRepos });
       }
 
@@ -173,10 +164,6 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
          FROM repos WHERE user_id = $1 ORDER BY created_at DESC`,
         [req.userId]
       );
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Database repos fetched',data:{count:dbResult.rows.length,repos:dbResult.rows.map((r:any)=>({id:r.id,github_repo_id:r.github_repo_id,full_name:r.full_name}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
 
       // If user has connected repos, return them (with database UUIDs)
       if (dbResult.rows.length > 0) {
@@ -191,18 +178,10 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
           last_analyzed_at: row.last_analyzed_at,
         }));
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Returning database repos',data:{repoIds:repos.map((r:any)=>r.id)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
         return reply.send({ repos });
       }
 
       // No connected repos - return error to trigger redirect to onboarding
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'No connected repos found',data:{userId:req.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-
       return reply.status(404).send({ 
         error: 'No repositories connected',
         message: 'No repositories connected. Please connect repositories first.',

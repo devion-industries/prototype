@@ -15,10 +15,6 @@ export async function resolveRepoId(
   userId: string,
   repoId: string
 ): Promise<string | null> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ownership.ts:resolveRepoId',message:'Resolving repoId',data:{userId,repoId,isValidUUID:isValidUUID(repoId)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-
   let result;
   if (isValidUUID(repoId)) {
     // Look up by database ID (UUID)
@@ -33,10 +29,6 @@ export async function resolveRepoId(
       [repoId, userId]
     );
   }
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ownership.ts:resolveRepoId',message:'Resolve result',data:{found:result.rows.length > 0,resolvedId:result.rows[0]?.id || null,lookupType:isValidUUID(repoId)?'uuid':'github_id'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
   
   return result.rows.length > 0 ? result.rows[0].id : null;
 }

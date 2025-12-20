@@ -13,10 +13,6 @@ export default async function outputsRoutes(fastify: FastifyInstance) {
     const req = request as AuthenticatedRequest;
     const { repoId } = request.params as { repoId: string };
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'outputs.ts:GET /repos/:repoId/outputs/latest',message:'Route called',data:{repoId,userId:req.userId,isValidUUID:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(repoId)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-
     // Resolve repoId to database UUID (handles both UUID and GitHub ID)
     const resolvedRepoId = await resolveRepoId(req.userId, repoId);
     
