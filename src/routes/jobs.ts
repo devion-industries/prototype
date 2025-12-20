@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { AuthenticatedRequest, requireAuth } from '../auth/middleware';
-import { verifyRepoOwnership, verifyJobOwnership } from '../auth/ownership';
+import { resolveRepoId, verifyJobOwnership } from '../auth/ownership';
 import { enqueueAnalysisJob } from '../queue/jobs';
 import { generateSnapshotHash, findRecentJob, createAnalysisJob } from '../analysis/idempotency';
 import db from '../db/client';
@@ -9,12 +9,16 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
   /**
    * POST /repos/:repoId/analyze
    * Triggers analysis job
+   * Accepts either database UUID or GitHub repo ID
    */
   fastify.post('/repos/:repoId/analyze', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
     const { repoId } = request.params as { repoId: string };
 
-    if (!await verifyRepoOwnership(req.userId, repoId)) {
+    // Resolve repoId to database UUID (handles both UUID and GitHub ID)
+    const resolvedRepoId = await resolveRepoId(req.userId, repoId);
+    
+    if (!resolvedRepoId) {
       return reply.status(403).send({ error: 'Access denied' });
     }
 
@@ -25,7 +29,7 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
          FROM repos r
          JOIN repo_settings rs ON rs.repo_id = r.id
          WHERE r.id = $1`,
-        [repoId]
+        [resolvedRepoId]
       );
 
       if (repoResult.rows.length === 0) {
@@ -50,14 +54,14 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
       // For idempotency, using current timestamp as part of hash
       // In production, would fetch latest commit SHA
       const snapshotHash = generateSnapshotHash(
-        repoId,
+        resolvedRepoId,
         repo.branch,
         Date.now().toString(),
         repo.analysis_depth
       );
 
       // Check for recent job
-      const existingJobId = await findRecentJob(repoId, snapshotHash);
+      const existingJobId = await findRecentJob(resolvedRepoId, snapshotHash);
       if (existingJobId) {
         return reply.send({
           job_id: existingJobId,
@@ -67,12 +71,12 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
       }
 
       // Create new job
-      const jobId = await createAnalysisJob(repoId, req.userId, snapshotHash, 'manual');
+      const jobId = await createAnalysisJob(resolvedRepoId, req.userId, snapshotHash, 'manual');
 
       // Enqueue job
       await enqueueAnalysisJob({
         jobId,
-        repoId,
+        repoId: resolvedRepoId,
         userId: req.userId,
         owner,
         repo: repoName,
@@ -133,12 +137,16 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
   /**
    * GET /repos/:repoId/jobs
    * Lists recent jobs for a repo
+   * Accepts either database UUID or GitHub repo ID
    */
   fastify.get('/repos/:repoId/jobs', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
     const { repoId } = request.params as { repoId: string };
 
-    if (!await verifyRepoOwnership(req.userId, repoId)) {
+    // Resolve repoId to database UUID (handles both UUID and GitHub ID)
+    const resolvedRepoId = await resolveRepoId(req.userId, repoId);
+    
+    if (!resolvedRepoId) {
       return reply.status(403).send({ error: 'Access denied' });
     }
 
@@ -149,7 +157,7 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
          WHERE repo_id = $1
          ORDER BY created_at DESC
          LIMIT 20`,
-        [repoId]
+        [resolvedRepoId]
       );
 
       return reply.send({ jobs: result.rows });

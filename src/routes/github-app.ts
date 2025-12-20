@@ -131,9 +131,14 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
   /**
    * GET /github/repos
    * Lists repositories accessible to the GitHub App installation
+   * Returns repos from database (connected repos) with database UUIDs
    */
   fastify.get('/github/repos', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Endpoint called',data:{userId:req.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     try {
       // Get user's Octokit instance
@@ -146,10 +151,47 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Fetch repos using the installation token
-      const repos = await fetchUserRepos(octokit as any);
+      // First, get connected repos from database
+      const dbResult = await db.query(
+        `SELECT id, github_repo_id, full_name, default_branch, is_private, status, created_at,
+           (SELECT finished_at FROM analysis_jobs WHERE repo_id = repos.id AND status = 'succeeded' ORDER BY finished_at DESC LIMIT 1) as last_analyzed_at
+         FROM repos WHERE user_id = $1 ORDER BY created_at DESC`,
+        [req.userId]
+      );
 
-      return reply.send({ repos });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Database repos fetched',data:{count:dbResult.rows.length,repos:dbResult.rows.map((r:any)=>({id:r.id,github_repo_id:r.github_repo_id,full_name:r.full_name}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
+      // If user has connected repos, return them (with database UUIDs)
+      if (dbResult.rows.length > 0) {
+        const repos = dbResult.rows.map((row: any) => ({
+          id: row.id, // Database UUID
+          github_repo_id: row.github_repo_id,
+          full_name: row.full_name,
+          default_branch: row.default_branch,
+          is_private: row.is_private,
+          status: row.status,
+          created_at: row.created_at,
+          last_analyzed_at: row.last_analyzed_at,
+        }));
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Returning database repos',data:{repoIds:repos.map((r:any)=>r.id)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        return reply.send({ repos });
+      }
+
+      // No connected repos - fetch from GitHub and return them
+      // (these won't have database IDs, so frontend should redirect to onboarding)
+      const githubRepos = await fetchUserRepos(octokit as any);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'No DB repos, returning GitHub repos',data:{count:githubRepos.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
+      return reply.send({ repos: githubRepos });
     } catch (error: any) {
       console.error('GitHub repos fetch error:', error);
       return reply.status(500).send({
@@ -223,6 +265,7 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     }
   });
 }
+
 
 
 

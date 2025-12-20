@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { AuthenticatedRequest, requireAuth } from '../auth/middleware';
-import { verifyRepoOwnership } from '../auth/ownership';
+import { resolveRepoId } from '../auth/ownership';
 import { schemas } from '../utils/validation';
 import db from '../db/client';
 
@@ -92,12 +92,20 @@ export default async function reposRoutes(fastify: FastifyInstance) {
   /**
    * GET /repos/:repoId
    * Gets repository details
+   * Accepts either database UUID or GitHub repo ID
    */
   fastify.get('/repos/:repoId', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
     const { repoId } = request.params as { repoId: string };
 
-    if (!await verifyRepoOwnership(req.userId, repoId)) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repos.ts:GET /repos/:repoId',message:'Route called',data:{repoId,userId:req.userId,isValidUUID:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(repoId)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
+    // Resolve repoId to database UUID (handles both UUID and GitHub ID)
+    const resolvedRepoId = await resolveRepoId(req.userId, repoId);
+    
+    if (!resolvedRepoId) {
       return reply.status(403).send({ error: 'Access denied' });
     }
 
@@ -125,7 +133,7 @@ export default async function reposRoutes(fastify: FastifyInstance) {
          FROM repos r
          JOIN repo_settings rs ON rs.repo_id = r.id
          WHERE r.id = $1 AND r.user_id = $2`,
-        [repoId, req.userId]
+        [resolvedRepoId, req.userId]
       );
 
       if (result.rows.length === 0) {
@@ -145,19 +153,23 @@ export default async function reposRoutes(fastify: FastifyInstance) {
   /**
    * PATCH /repos/:repoId/settings
    * Updates repository settings
+   * Accepts either database UUID or GitHub repo ID
    */
   fastify.patch('/repos/:repoId/settings', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
     const { repoId } = request.params as { repoId: string };
     const body = schemas.updateSettings.parse(request.body);
 
-    if (!await verifyRepoOwnership(req.userId, repoId)) {
+    // Resolve repoId to database UUID (handles both UUID and GitHub ID)
+    const resolvedRepoId = await resolveRepoId(req.userId, repoId);
+    
+    if (!resolvedRepoId) {
       return reply.status(403).send({ error: 'Access denied' });
     }
 
     try {
       const updates: string[] = [];
-      const params: any[] = [repoId];
+      const params: any[] = [resolvedRepoId];
       let paramIndex = 2;
 
       if (body.branch !== undefined) {

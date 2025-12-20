@@ -1,18 +1,26 @@
 import { FastifyInstance } from 'fastify';
 import { AuthenticatedRequest, requireAuth } from '../auth/middleware';
-import { verifyRepoOwnership, verifyOutputOwnership } from '../auth/ownership';
+import { resolveRepoId, verifyOutputOwnership } from '../auth/ownership';
 import db from '../db/client';
 
 export default async function outputsRoutes(fastify: FastifyInstance) {
   /**
    * GET /repos/:repoId/outputs/latest
    * Gets latest outputs for all 4 types
+   * Accepts either database UUID or GitHub repo ID
    */
   fastify.get('/repos/:repoId/outputs/latest', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
     const { repoId } = request.params as { repoId: string };
 
-    if (!await verifyRepoOwnership(req.userId, repoId)) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'outputs.ts:GET /repos/:repoId/outputs/latest',message:'Route called',data:{repoId,userId:req.userId,isValidUUID:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(repoId)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
+    // Resolve repoId to database UUID (handles both UUID and GitHub ID)
+    const resolvedRepoId = await resolveRepoId(req.userId, repoId);
+    
+    if (!resolvedRepoId) {
       return reply.status(403).send({ error: 'Access denied' });
     }
 
@@ -23,7 +31,7 @@ export default async function outputsRoutes(fastify: FastifyInstance) {
          FROM analysis_outputs
          WHERE repo_id = $1
          ORDER BY type, created_at DESC`,
-        [repoId]
+        [resolvedRepoId]
       );
 
       const outputs = {
