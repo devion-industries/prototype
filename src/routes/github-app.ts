@@ -131,13 +131,17 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
   /**
    * GET /github/repos
    * Lists repositories accessible to the GitHub App installation
-   * Returns repos from database (connected repos) with database UUIDs
+   * 
+   * Query params:
+   * - available=true: Return all repos from GitHub (for onboarding/selection)
+   * - (default): Return connected repos from database (with UUIDs)
    */
   fastify.get('/github/repos', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
+    const { available } = request.query as { available?: string };
 
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Endpoint called',data:{userId:req.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Endpoint called',data:{userId:req.userId,available},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
 
     try {
@@ -151,7 +155,18 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // First, get connected repos from database
+      // If available=true, return all GitHub repos (for onboarding/selection)
+      if (available === 'true') {
+        const githubRepos = await fetchUserRepos(octokit as any);
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'Returning available GitHub repos',data:{count:githubRepos.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        return reply.send({ repos: githubRepos });
+      }
+
+      // Default: get connected repos from database
       const dbResult = await db.query(
         `SELECT id, github_repo_id, full_name, default_branch, is_private, status, created_at,
            (SELECT finished_at FROM analysis_jobs WHERE repo_id = repos.id AND status = 'succeeded' ORDER BY finished_at DESC LIMIT 1) as last_analyzed_at
