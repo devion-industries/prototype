@@ -183,15 +183,16 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
         return reply.send({ repos });
       }
 
-      // No connected repos - fetch from GitHub and return them
-      // (these won't have database IDs, so frontend should redirect to onboarding)
-      const githubRepos = await fetchUserRepos(octokit as any);
-      
+      // No connected repos - return error to trigger redirect to onboarding
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'No DB repos, returning GitHub repos',data:{count:githubRepos.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/8d3b0573-4207-40dd-b592-63e02b65dcc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'github-app.ts:GET /github/repos',message:'No connected repos found',data:{userId:req.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
 
-      return reply.send({ repos: githubRepos });
+      return reply.status(404).send({ 
+        error: 'No repositories connected',
+        message: 'No repositories connected. Please connect repositories first.',
+        redirect: 'onboarding'
+      });
     } catch (error: any) {
       console.error('GitHub repos fetch error:', error);
       return reply.status(500).send({
