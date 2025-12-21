@@ -1,57 +1,103 @@
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import config from '../config';
 
-let transporter: nodemailer.Transporter | null = null;
+let resend: Resend | null = null;
 
-function getTransporter(): nodemailer.Transporter | null {
-  if (!config.SMTP_HOST || !config.SMTP_USER) {
-    console.warn('Email not configured, skipping email notification');
+function getResendClient(): Resend | null {
+  if (!config.RESEND_API_KEY) {
+    console.warn('⚠️ RESEND_API_KEY not configured, email notifications disabled');
     return null;
   }
 
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: config.SMTP_HOST,
-      port: config.SMTP_PORT || 587,
-      secure: false,
-      auth: {
-        user: config.SMTP_USER,
-        pass: config.SMTP_PASSWORD,
-      },
-    });
+  if (!resend) {
+    resend = new Resend(config.RESEND_API_KEY);
   }
 
-  return transporter;
+  return resend;
 }
 
 /**
- * Sends an email
+ * Sends a plain text email
  */
 export async function sendEmail(
   to: string,
   subject: string,
   body: string
 ): Promise<void> {
-  const transport = getTransporter();
+  const client = getResendClient();
   
-  if (!transport) {
-    console.log('Email would be sent to:', to);
+  if (!client) {
+    console.log('📧 [DEV] Email would be sent to:', to);
+    console.log('   Subject:', subject);
     return;
   }
 
   try {
-    await transport.sendMail({
-      from: config.FROM_EMAIL || config.SMTP_USER,
+    const { data, error } = await client.emails.send({
+      from: config.FROM_EMAIL,
       to,
       subject,
       text: body,
     });
 
-    console.log(`📧 Email sent to ${to}`);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`📧 Email sent to ${to} (ID: ${data?.id})`);
   } catch (error) {
     console.error('Failed to send email:', error);
     throw error;
   }
 }
 
+/**
+ * Sends an HTML email (for rich weekly briefs)
+ */
+export async function sendHtmlEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text?: string
+): Promise<void> {
+  const client = getResendClient();
+  
+  if (!client) {
+    console.log('📧 [DEV] HTML Email would be sent to:', to);
+    console.log('   Subject:', subject);
+    return;
+  }
 
+  try {
+    const { data, error } = await client.emails.send({
+      from: config.FROM_EMAIL,
+      to,
+      subject,
+      html,
+      text: text || stripHtml(html),
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`📧 HTML Email sent to ${to} (ID: ${data?.id})`);
+  } catch (error) {
+    console.error('Failed to send HTML email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Simple HTML to text converter for fallback
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n\s*\n/g, '\n\n')
+    .trim();
+}

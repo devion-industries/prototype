@@ -5,6 +5,14 @@ import { fetchRepoSnapshot } from '../github/fetchers';
 import { generateAllOutputs } from '../ai/generator';
 import { decrypt } from '../utils/encryption';
 import { sendNotification } from '../notifications';
+import { sendHtmlEmail } from '../notifications/email';
+import { 
+  buildWeeklyBriefEmail, 
+  extractTldr, 
+  extractRiskyChanges, 
+  extractSuggestedActions,
+  WeeklyBriefData 
+} from '../notifications/templates/weekly-brief';
 import db from '../db/client';
 
 /**
@@ -134,21 +142,44 @@ async function sendJobNotifications(
 
     // Send email notification
     if (settings.notify_email && userEmail) {
-      await sendNotification({
-        type: 'email',
-        to: userEmail,
-        subject: `Analysis complete for ${settings.full_name}`,
-        body: `Your repository analysis is ready!\n\nView results: ${process.env.FRONTEND_URL}/repos/${repoId}/outputs\n\nJob ID: ${jobId}`,
-      });
+      // Fetch the maintainer_brief output for this job
+      const briefResult = await db.query(
+        `SELECT content_markdown FROM analysis_outputs 
+         WHERE job_id = $1 AND type = 'maintainer_brief'`,
+        [jobId]
+      );
+      
+      const maintainerBrief = briefResult.rows[0]?.content_markdown || '';
+      
+      // Build rich email with extracted content
+      const briefData: WeeklyBriefData = {
+        repoFullName: settings.full_name,
+        repoId: repoId,
+        date: new Date().toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        tldr: extractTldr(maintainerBrief),
+        riskyChanges: extractRiskyChanges(maintainerBrief),
+        suggestedActions: extractSuggestedActions(maintainerBrief),
+        schedule: settings.schedule || 'weekly',
+      };
+      
+      const { subject, html } = buildWeeklyBriefEmail(briefData);
+      
+      await sendHtmlEmail(userEmail, subject, html);
+      console.log(`📧 Rich email notification sent to ${userEmail} for ${settings.full_name}`);
     }
 
-    // Send Slack notification
+    // Send Slack notification (basic for now)
     if (settings.notify_slack && settings.slack_webhook_url_encrypted) {
       const webhookUrl = decrypt(settings.slack_webhook_url_encrypted);
       await sendNotification({
         type: 'slack',
         webhookUrl,
-        message: `✅ Analysis complete for *${settings.full_name}*\nView: ${process.env.FRONTEND_URL}/repos/${repoId}/outputs`,
+        message: `✅ Analysis complete for *${settings.full_name}*\nView: ${process.env.FRONTEND_URL}/repo/${repoId}`,
       });
     }
   } catch (error) {

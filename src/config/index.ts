@@ -37,12 +37,9 @@ const configSchema = z.object({
   // Encryption (32-byte hex key = 64 characters)
   ENCRYPTION_KEY: z.string().length(64),
 
-  // Email (optional)
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().transform(Number).optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASSWORD: z.string().optional(),
-  FROM_EMAIL: z.string().email().optional(),
+  // Email (Resend)
+  RESEND_API_KEY: z.string().optional(),
+  FROM_EMAIL: z.string().default('RepoMind <onboarding@resend.dev>'),
 
   // Rate Limiting
   RATE_LIMIT_MAX: z.string().transform(Number).default('100'),
