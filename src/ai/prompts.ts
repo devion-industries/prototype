@@ -273,46 +273,139 @@ export function buildGoodFirstIssuesPrompt(
 
   // Analyze codebase for potential issues
   const fileTypes = analyzeFileTypes(snapshot.commits);
-  // const commonAreas = analyzeCommonAreas(snapshot.commits);
+  const fileChurn = analyzeFileChurn(snapshot.commits);
+  const directoryActivity = analyzeDirectoryActivity(snapshot.commits);
+  
+  // Find stable areas good for first contributions
+  const stableAreas = Object.entries(directoryActivity)
+    .filter(([_, count]) => count >= 2 && count <= 8)
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 5)
+    .map(([dir]) => dir);
 
-  return `Analyze this repository and suggest Good First Issues.
+  // Recent commit patterns for context
+  const recentCommits = snapshot.commits.slice(0, 30);
+  const recentPRs = snapshot.prs.slice(0, 20);
+
+  return `You are an expert at identifying high-quality entry points for new contributors.
+
+Analyze this repository and create a STRATEGIC list of Good First Issues.
 
 Repository: ${snapshot.repo.full_name}
 Language: ${snapshot.repo.language || 'Multiple'}
+Stars: ${snapshot.repo.stargazers_count}
 
-Existing Good First Issues (${existingIssues.length}):
-${existingIssues.map(i => `- #${i.number}: ${i.title} (${i.comments} comments)`).join('\n')}
+===== EXISTING ISSUES ANALYSIS =====
 
-Recent Activity:
-${snapshot.commits.slice(0, 20).map(c => `- ${c.message.split('\n')[0]}`).join('\n')}
+Current Good First Issues (${existingIssues.length}):
+${existingIssues.length > 0 
+  ? existingIssues.map(i => `- #${i.number}: ${i.title} [Labels: ${i.labels.join(', ')}] (${i.comments} comments)`).join('\n')
+  : 'No existing good first issues found.'}
+
+===== CODEBASE ACTIVITY DATA =====
+
+Recent Commits (${recentCommits.length}):
+${recentCommits.map(c => `- ${c.sha.slice(0, 7)}: ${c.message.split('\n')[0]} [${c.files?.slice(0, 3).join(', ') || 'no files'}]`).join('\n')}
+
+Recent PRs (${recentPRs.length}):
+${recentPRs.map(pr => `- #${pr.number}: ${pr.title} by @${pr.author}`).join('\n')}
 
 Common File Types:
-${Object.entries(fileTypes).slice(0, 10).map(([ext, count]) => `- ${ext}: ${count} files`).join('\n')}
+${Object.entries(fileTypes).slice(0, 10).map(([ext, count]) => `- .${ext}: ${count} files changed`).join('\n')}
 
-${snapshot.readme ? `README:\n${snapshot.readme.slice(0, 1000)}...\n` : ''}
+Stable Areas (good for first PRs):
+${stableAreas.length > 0 ? stableAreas.map(d => `- ${d}/`).join('\n') : 'None identified'}
 
-Create a Good First Issues list in this EXACT format:
+High-Churn Files (avoid for first PRs):
+${Object.entries(fileChurn).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([file, count]) => `- ${file} (${count} changes)`).join('\n')}
+
+${snapshot.readme ? `README (for context):\n${snapshot.readme.slice(0, 1500)}...\n` : ''}
+${snapshot.contributing ? `CONTRIBUTING (for context):\n${snapshot.contributing.slice(0, 800)}...\n` : ''}
+
+===== GENERATE THIS EXACT FORMAT =====
 
 # Good First Issues
 
-## Suggested Issues
+> **Based on recent commits and PRs, these are the safest and most impactful entry points for new contributors right now.**
 
-${tone === 'detailed' ? '[List 10-15 issues]' : '[List 5-8 issues]'}
+---
 
-For each issue:
+## 📚 Documentation
+${tone === 'detailed' ? '[List 2-4 documentation issues]' : '[List 1-2 documentation issues]'}
 
-### [Issue Title]
-**Why Good First Issue:** [Reasoning]  
-**Required Skills:** [e.g. JavaScript, documentation, testing]  
-**Confidence:** [0.0 to 1.0]  
-${existingIssues.length > 0 ? '**Related:** [Link to similar existing issue if applicable]' : ''}
+For each:
+### [Clear, actionable title]
+**Why this is safe:** [1 sentence - what makes it low-risk]  
+**What to do:** [Specific action - which file to edit, what to add]  
+**Files:** \`path/to/relevant/file.md\`  
+**Confidence:** ⭐⭐⭐⭐⭐ (5/5) or similar  
 
-## Analysis Notes
-[Overall assessment of good first issue opportunities]
+---
 
-Be specific and realistic about difficulty.
-Consider existing contributor patterns.
-Suggest issues that actually need doing.`;
+## 🧪 Testing
+${tone === 'detailed' ? '[List 2-3 testing issues]' : '[List 1-2 testing issues]'}
+
+For each:
+### [Clear, actionable title]
+**Why this is safe:** [1 sentence]  
+**What to do:** [Specific action]  
+**Files:** \`path/to/test/file.test.ts\`  
+**Confidence:** ⭐⭐⭐⭐ (4/5) or similar  
+
+---
+
+## 🔧 Code Improvements
+${tone === 'detailed' ? '[List 3-5 refactoring/improvement issues]' : '[List 2-3 issues]'}
+
+For each:
+### [Clear, actionable title]
+**Why this is safe:** [1 sentence - reference the stability data]  
+**What to do:** [Specific action]  
+**Files:** \`path/to/file.ts\`  
+**Related:** ${existingIssues.length > 0 ? '[Link to existing issue #X if related]' : '[Any related PRs]'}  
+**Confidence:** ⭐⭐⭐ (3/5) or similar  
+
+---
+
+## 🎨 UX/UI (if applicable)
+${tone === 'detailed' ? '[List 1-3 UX issues if this has a frontend]' : '[List 1 UX issue if applicable]'}
+
+For each:
+### [Clear, actionable title]
+**Why this is safe:** [1 sentence]  
+**What to do:** [Specific action]  
+**Files:** \`path/to/component.tsx\`  
+**Confidence:** ⭐⭐⭐⭐ (4/5) or similar  
+
+---
+
+## 📊 How We Generated These
+
+<details>
+<summary>Analysis methodology (click to expand)</summary>
+
+We analyzed:
+- ${recentCommits.length} recent commits
+- ${recentPRs.length} merged PRs
+- File churn patterns
+- Directory stability
+
+**Stable areas identified:** ${stableAreas.join(', ') || 'None'}
+
+**Avoided areas:** High-churn files that would require deep context
+
+</details>
+
+---
+
+IMPORTANT RULES:
+1. Every issue MUST have a specific file path - not "somewhere in the codebase"
+2. Every issue MUST be actionable - a new contributor should know exactly what to do
+3. Reference actual file paths from the commit data provided
+4. If an existing issue is related, reference it by number: "See #123"
+5. Confidence should reflect actual risk - documentation is 5/5, core logic is 2/5
+6. Don't suggest issues that require understanding complex systems
+7. Prefer stable areas over high-churn areas for safety`;
 }
 
 /**
