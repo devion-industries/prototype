@@ -59,26 +59,25 @@ exportWorker.on('failed', (job, err) => {
   console.error(`❌ Export ${job?.id} failed:`, err.message);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing workers...');
-  await analysisWorker.close();
-  await exportWorker.close();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, closing workers...');
-  await analysisWorker.close();
-  await exportWorker.close();
-  process.exit(0);
-});
-
-// Start workers
+// Only add signal handlers when running as standalone worker
 if (require.main === module) {
-  console.log('🚀 Workers started');
+  console.log('🚀 Workers started (standalone mode)');
   console.log(`   - Analysis worker (concurrency: ${workerOptions.concurrency})`);
   console.log(`   - Export worker (concurrency: ${workerOptions.concurrency})`);
+
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM received, closing workers...');
+    await analysisWorker.close();
+    await exportWorker.close();
+    process.exit(0);
+  });
+
+  process.on('SIGINT', async () => {
+    console.log('SIGINT received, closing workers...');
+    await analysisWorker.close();
+    await exportWorker.close();
+    process.exit(0);
+  });
 }
 
 export default { analysisWorker, exportWorker };

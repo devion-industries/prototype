@@ -14,6 +14,9 @@ import jobsRoutes from './routes/jobs';
 import outputsRoutes from './routes/outputs';
 import exportsRoutes from './routes/exports';
 
+// Workers - embedded in same process for simplified deployment
+import { analysisWorker, exportWorker } from './queue/worker';
+
 const fastify = Fastify({
   logger: config.NODE_ENV === 'development' ? {
     transport: {
@@ -116,6 +119,11 @@ async function start() {
 ║   Docs:    See README.md                      ║
 ╚═══════════════════════════════════════════════╝
     `);
+
+    // Log that workers are running
+    console.log('🔧 Workers embedded in server process:');
+    console.log('   - Analysis worker: running');
+    console.log('   - Export worker: running');
   } catch (error) {
     fastify.log.error(error);
     process.exit(1);
@@ -126,8 +134,12 @@ async function start() {
 const signals = ['SIGINT', 'SIGTERM'];
 signals.forEach((signal) => {
   process.on(signal, async () => {
-    console.log(`\n${signal} received, closing server...`);
-    await fastify.close();
+    console.log(`\n${signal} received, closing server and workers...`);
+    await Promise.all([
+      fastify.close(),
+      analysisWorker.close(),
+      exportWorker.close(),
+    ]);
     process.exit(0);
   });
 });
