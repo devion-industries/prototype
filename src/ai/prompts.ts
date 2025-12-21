@@ -79,48 +79,132 @@ export function buildContributorQuickstartPrompt(
   snapshot: RepoSnapshot,
   tone: 'concise' | 'detailed'
 ): string {
-  // Extract setup info for potential future use
-  // const setupInfo = extractSetupInfo(snapshot.readme, snapshot.contributing);
+  // Analyze codebase structure for architecture insights
+  const fileChurn = analyzeFileChurn(snapshot.commits);
+  const topChurnFiles = Object.entries(fileChurn)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15);
+  
+  const directoryActivity = analyzeDirectoryActivity(snapshot.commits);
+  const topDirectories = Object.entries(directoryActivity)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
 
-  return `Create a New Contributor Quickstart guide for this repository.
+  // Find stable vs volatile areas
+  const stableAreas = Object.entries(directoryActivity)
+    .filter(([_, count]) => count <= 3)
+    .map(([dir]) => dir)
+    .slice(0, 5);
+
+  const volatileAreas = topDirectories.slice(0, 3).map(([dir]) => dir);
+
+  // Recent commit patterns for context
+  const recentCommitMessages = snapshot.commits.slice(0, 30)
+    .map(c => c.message.split('\n')[0])
+    .join('\n');
+
+  return `You are an expert developer onboarding specialist. Create a DEEP, REPO-SPECIFIC contributor guide.
+
+DO NOT write generic content like "clone the repo" or "npm install".
+DO analyze the actual codebase and provide INSIGHTS that only come from understanding THIS specific project.
 
 Repository: ${snapshot.repo.full_name}
-Language: ${snapshot.repo.language || 'Multiple'}
+Primary Language: ${snapshot.repo.language || 'Multiple'}
 Description: ${snapshot.repo.description || 'No description'}
 
-${snapshot.readme ? `README:\n${snapshot.readme.slice(0, 2000)}...\n` : ''}
-${snapshot.contributing ? `CONTRIBUTING:\n${snapshot.contributing.slice(0, 1000)}...\n` : ''}
+===== ACTUAL CODEBASE DATA =====
 
-Good First Issues (${snapshot.issues.length}):
-${snapshot.issues.slice(0, 5).map(i => `- #${i.number}: ${i.title}`).join('\n')}
+README Content:
+${snapshot.readme ? snapshot.readme.slice(0, 3000) : 'No README found'}
 
-Recent PRs (for context):
-${snapshot.prs.slice(0, 10).map(pr => `- #${pr.number}: ${pr.title}`).join('\n')}
+CONTRIBUTING Guide:
+${snapshot.contributing ? snapshot.contributing.slice(0, 1500) : 'No CONTRIBUTING.md found'}
 
-Create a Contributor Quickstart in this EXACT format:
+Most Active Directories (by commit frequency):
+${topDirectories.map(([dir, count]) => `- ${dir}/ (${count} changes)`).join('\n')}
 
-# New Contributor Quickstart
+High-Churn Files (most frequently modified):
+${topChurnFiles.map(([file, count]) => `- ${file} (${count} changes)`).join('\n')}
 
-## 60-Second Overview
-[What this project does in plain English]
+Low-Activity/Stable Areas:
+${stableAreas.length > 0 ? stableAreas.map(d => `- ${d}/`).join('\n') : 'None identified'}
 
-## Setup Steps
-[Clear, numbered steps to get running locally]
+Recent Development Focus (last 30 commits):
+${recentCommitMessages}
 
-## Architecture Map
-[Key directories and files - what goes where]
+Recent PRs (shows what contributors work on):
+${snapshot.prs.slice(0, 15).map(pr => `- #${pr.number}: ${pr.title} by @${pr.author}`).join('\n')}
 
-## Start Here
-[Best issues/PRs for first-time contributors with links]
+Open Issues Tagged for Contributors:
+${snapshot.issues.length > 0 
+  ? snapshot.issues.slice(0, 8).map(i => `- #${i.number}: ${i.title} (${i.labels.join(', ')})`).join('\n')
+  : 'No tagged issues found'}
 
-## Contribution Rules
-[Condensed version of guidelines]
+===== GENERATE THIS EXACT FORMAT =====
 
-## Getting Help
-[Where to ask questions]
+# Contributor Intelligence Report
 
-Use ${tone === 'detailed' ? 'comprehensive' : 'minimal, fast-start'} language.
-Assume reader knows how to code but not this project.`;
+## 🧠 Mental Model (How This Codebase Works)
+
+[THIS IS THE MOST IMPORTANT SECTION]
+Explain the high-level architecture in 3-5 bullet points:
+- What is the data flow?
+- Where does the main logic live?
+- How do the pieces connect?
+- What's the request/response lifecycle?
+
+Be SPECIFIC to this repo. Reference actual directories and files.
+
+## 🚀 Environment Setup
+
+[Don't just say "npm install" - provide CONTEXT]
+- What specific tech stack is this? (e.g., "Vite + React 18 + Supabase backend")
+- What environment variables are likely needed?
+- Any prerequisites specific to this project?
+- What port does it run on?
+
+## 📍 Start Here (Specific Recommendations)
+
+Based on the codebase analysis, recommend:
+1. **First file to read**: [specific file] - because [reason]
+2. **Best directory for first PR**: [specific dir] - because [reason based on activity data]
+3. **Avoid starting with**: [specific area] - because [reason - e.g., high churn, complex, foundational]
+
+## ⚠️ Complexity Zones (What NOT to Touch First)
+
+Based on file churn and commit patterns:
+${volatileAreas.length > 0 ? `
+The following areas have high activity and interconnected changes:
+${volatileAreas.map(area => `- \`${area}/\` - [explain why it's complex based on the data]`).join('\n')}
+
+Wait until you understand the codebase before modifying these.
+` : 'No high-complexity zones identified.'}
+
+## 🗺️ Architecture Deep-Dive
+
+[Go beyond folder listing - explain PURPOSE]
+For each major directory, explain:
+- What lives here
+- How it connects to other parts
+- The pattern/convention used
+
+## 🎯 Recommended First Contributions
+
+Based on recent activity and open issues:
+${snapshot.issues.length > 0 
+  ? '[Pick 2-3 specific issues and explain WHY they are good starting points]'
+  : '[Suggest documentation improvements or test additions based on gaps you see]'}
+
+## 💡 Codebase Insights
+
+Observations from analyzing recent commits:
+- What areas are actively being developed?
+- What patterns does this team use?
+- Any conventions you noticed?
+
+Use ${tone === 'detailed' ? 'comprehensive technical detail' : 'concise but specific'} language.
+Every statement should reference actual files, directories, or patterns from the data provided.
+If you're not sure about something, say "Based on the commit patterns, it appears..." rather than guessing.`;
 }
 
 /**
@@ -321,5 +405,30 @@ function analyzeCommonAreas(commits: any[]): Record<string, number> {
   }
   
   return areas;
+}
+
+/**
+ * Helper: Analyze directory activity (with nested dirs)
+ */
+function analyzeDirectoryActivity(commits: any[]): Record<string, number> {
+  const dirs: Record<string, number> = {};
+  
+  for (const commit of commits) {
+    for (const file of commit.files || []) {
+      // Get up to 2 levels of directory depth
+      const parts = file.split('/');
+      if (parts.length > 1) {
+        const dir1 = parts[0];
+        dirs[dir1] = (dirs[dir1] || 0) + 1;
+        
+        if (parts.length > 2) {
+          const dir2 = `${parts[0]}/${parts[1]}`;
+          dirs[dir2] = (dirs[dir2] || 0) + 1;
+        }
+      }
+    }
+  }
+  
+  return dirs;
 }
 
