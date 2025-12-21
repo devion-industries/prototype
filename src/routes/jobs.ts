@@ -3,6 +3,7 @@ import { AuthenticatedRequest, requireAuth } from '../auth/middleware';
 import { resolveRepoId, verifyJobOwnership } from '../auth/ownership';
 import { enqueueAnalysisJob } from '../queue/jobs';
 import { generateSnapshotHash, findRecentJob, createAnalysisJob } from '../analysis/idempotency';
+import { getUserInstallationId } from '../github/app-client';
 import db from '../db/client';
 
 export default async function jobsRoutes(fastify: FastifyInstance) {
@@ -39,17 +40,12 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
       const repo = repoResult.rows[0];
       const [owner, repoName] = repo.full_name.split('/');
 
-      // Get GitHub access token
-      const tokenResult = await db.query(
-        'SELECT access_token_encrypted FROM github_accounts WHERE user_id = $1 LIMIT 1',
-        [req.userId]
-      );
+      // Get GitHub App installation ID
+      const installationId = await getUserInstallationId(req.userId, db);
 
-      if (tokenResult.rows.length === 0) {
-        return reply.status(404).send({ error: 'No GitHub account connected' });
+      if (!installationId) {
+        return reply.status(404).send({ error: 'No GitHub App installed. Please install the GitHub App.' });
       }
-
-      const accessToken = tokenResult.rows[0].access_token_encrypted;
       
       // For idempotency, using current timestamp as part of hash
       // In production, would fetch latest commit SHA
@@ -84,7 +80,7 @@ export default async function jobsRoutes(fastify: FastifyInstance) {
         depth: repo.analysis_depth,
         tone: repo.output_tone,
         ignorePaths: repo.ignore_paths || [],
-        accessToken,
+        installationId,
       });
 
       return reply.status(202).send({

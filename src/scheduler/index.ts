@@ -44,7 +44,7 @@ async function checkScheduledRepos() {
          rs.output_tone,
          rs.ignore_paths,
          rs.schedule,
-         ga.access_token_encrypted,
+         ga.installation_id,
          (SELECT created_at FROM analysis_jobs 
           WHERE repo_id = r.id 
           ORDER BY created_at DESC 
@@ -53,7 +53,8 @@ async function checkScheduledRepos() {
        JOIN repo_settings rs ON rs.repo_id = r.id
        JOIN github_accounts ga ON ga.user_id = r.user_id
        WHERE r.status = 'active'
-         AND rs.schedule != 'manual'`
+         AND rs.schedule != 'manual'
+         AND ga.installation_id IS NOT NULL`
     );
 
     for (const repo of result.rows) {
@@ -150,7 +151,7 @@ async function scheduleRepoAnalysis(repo: any) {
       depth: repo.analysis_depth,
       tone: repo.output_tone,
       ignorePaths: repo.ignore_paths || [],
-      accessToken: repo.access_token_encrypted,
+      installationId: repo.installation_id,
     });
 
     console.log(`✅ Scheduled analysis for ${repo.full_name} (Job ID: ${jobId})`);

@@ -11,7 +11,7 @@ export interface AnalysisJobData {
   depth: 'fast' | 'deep';
   tone: 'concise' | 'detailed';
   ignorePaths: string[];
-  accessToken: string;
+  installationId: number;
 }
 
 export interface ExportJobData {

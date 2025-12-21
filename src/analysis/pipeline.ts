@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { AnalysisJobData } from '../queue/jobs';
-import { createGitHubClient } from '../github/client';
+import { getInstallationOctokit } from '../github/app-client';
 import { fetchRepoSnapshot } from '../github/fetchers';
 import { generateAllOutputs } from '../ai/generator';
 import { decrypt } from '../utils/encryption';
@@ -11,7 +11,7 @@ import db from '../db/client';
  * Main analysis pipeline processor
  */
 export async function processAnalysisJob(job: Job<AnalysisJobData>): Promise<void> {
-  const { jobId, repoId, userId, owner, repo, branch, depth, tone, ignorePaths, accessToken } = job.data;
+  const { jobId, repoId, userId, owner, repo, branch, depth, tone, ignorePaths, installationId } = job.data;
 
   try {
     // Update job status to running
@@ -20,8 +20,8 @@ export async function processAnalysisJob(job: Job<AnalysisJobData>): Promise<voi
 
     // Step 1: Fetch GitHub data (0-25%)
     await job.updateProgress(5);
-    const decryptedToken = decrypt(accessToken);
-    const octokit = createGitHubClient(decryptedToken);
+    console.log(`📡 Getting GitHub App installation token for installation: ${installationId}`);
+    const octokit = await getInstallationOctokit(installationId);
 
     await updateJobStatus(jobId, 'running', 25, 'Fetching repository data...');
     const snapshot = await fetchRepoSnapshot(octokit, owner, repo, branch, depth, ignorePaths);
