@@ -1,6 +1,14 @@
 import { Octokit } from '@octokit/rest';
 import { githubApiCall } from './client';
 
+/**
+ * Normalizes Octokit instance to handle both @octokit/rest and GitHub App Octokit
+ * GitHub App's getInstallationOctokit returns methods under .rest, while @octokit/rest has them directly
+ */
+function normalizeOctokit(octokit: any): Octokit {
+  return octokit.rest || octokit;
+}
+
 export interface GitHubRepo {
   id: number;
   full_name: string;
@@ -61,12 +69,13 @@ export interface RepoSnapshot {
  * Fetches repository metadata
  */
 export async function fetchRepoMetadata(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string
 ): Promise<GitHubRepo> {
+  const octo = normalizeOctokit(octokit);
   const result = await githubApiCall(async () => {
-    const { data } = await octokit.repos.get({ owner, repo });
+    const { data } = await octo.repos.get({ owner, repo });
     return data;
   });
 
@@ -86,17 +95,18 @@ export async function fetchRepoMetadata(
  * Fetches recent commits
  */
 export async function fetchRecentCommits(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string,
   branch: string,
   limit: number = 100,
   ignorePaths: string[] = []
 ): Promise<GitHubCommit[]> {
+  const octo = normalizeOctokit(octokit);
   const commits: GitHubCommit[] = [];
 
   const result = await githubApiCall(async () => {
-    return await octokit.repos.listCommits({
+    return await octo.repos.listCommits({
       owner,
       repo,
       sha: branch,
@@ -107,7 +117,7 @@ export async function fetchRecentCommits(
   for (const commit of result.data) {
     // Fetch files for each commit
     const commitDetail = await githubApiCall(async () => {
-      return await octokit.repos.getCommit({
+      return await octo.repos.getCommit({
         owner,
         repo,
         ref: commit.sha,
@@ -134,16 +144,17 @@ export async function fetchRecentCommits(
  * Fetches merged PRs from last N days
  */
 export async function fetchRecentPRs(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string,
   daysAgo: number = 30
 ): Promise<GitHubPR[]> {
+  const octo = normalizeOctokit(octokit);
   const since = new Date();
   since.setDate(since.getDate() - daysAgo);
 
   const result = await githubApiCall(async () => {
-    return await octokit.pulls.list({
+    return await octo.pulls.list({
       owner,
       repo,
       state: 'closed',
@@ -170,17 +181,18 @@ export async function fetchRecentPRs(
  * Fetches good first issues
  */
 export async function fetchGoodFirstIssues(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string
 ): Promise<GitHubIssue[]> {
+  const octo = normalizeOctokit(octokit);
   const labels = ['good first issue', 'help wanted', 'beginner friendly'];
   const issues: GitHubIssue[] = [];
 
   for (const label of labels) {
     try {
       const result = await githubApiCall(async () => {
-        return await octokit.issues.listForRepo({
+        return await octo.issues.listForRepo({
           owner,
           repo,
           state: 'open',
@@ -220,14 +232,15 @@ export async function fetchGoodFirstIssues(
  * Fetches recent releases
  */
 export async function fetchRecentReleases(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string,
   limit: number = 5
 ): Promise<GitHubRelease[]> {
+  const octo = normalizeOctokit(octokit);
   try {
     const result = await githubApiCall(async () => {
-      return await octokit.repos.listReleases({
+      return await octo.repos.listReleases({
         owner,
         repo,
         per_page: limit,
@@ -250,13 +263,14 @@ export async function fetchRecentReleases(
  * Fetches README content
  */
 export async function fetchReadme(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string
 ): Promise<string | null> {
+  const octo = normalizeOctokit(octokit);
   try {
     const result = await githubApiCall(async () => {
-      return await octokit.repos.getReadme({ owner, repo });
+      return await octo.repos.getReadme({ owner, repo });
     });
 
     const content = Buffer.from(result.data.content, 'base64').toString('utf-8');
@@ -271,16 +285,17 @@ export async function fetchReadme(
  * Fetches CONTRIBUTING.md content
  */
 export async function fetchContributing(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string
 ): Promise<string | null> {
+  const octo = normalizeOctokit(octokit);
   const possiblePaths = ['CONTRIBUTING.md', 'CONTRIBUTING', '.github/CONTRIBUTING.md'];
 
   for (const path of possiblePaths) {
     try {
       const result = await githubApiCall(async () => {
-        return await octokit.repos.getContent({ owner, repo, path });
+        return await octo.repos.getContent({ owner, repo, path });
       });
 
       if ('content' in result.data) {
@@ -298,7 +313,7 @@ export async function fetchContributing(
  * Fetches complete repository snapshot for analysis
  */
 export async function fetchRepoSnapshot(
-  octokit: Octokit,
+  octokit: any,
   owner: string,
   repo: string,
   branch: string,
@@ -340,11 +355,8 @@ export async function fetchRepoSnapshot(
  * Lists repositories accessible to the user
  */
 export async function fetchUserRepos(octokit: any): Promise<GitHubRepo[]> {
+  const octo = normalizeOctokit(octokit);
   const result = await githubApiCall(async () => {
-    // Handle both installation Octokit (GitHub App) and user Octokit (OAuth)
-    // Installation Octokit has methods under .rest
-    const octo = octokit.rest || octokit;
-    
     // For installations, we use listReposAccessibleToInstallation
     if (octo.apps && typeof octo.apps.listReposAccessibleToInstallation === 'function') {
       const response = await octo.apps.listReposAccessibleToInstallation({
@@ -360,9 +372,9 @@ export async function fetchUserRepos(octokit: any): Promise<GitHubRepo[]> {
     });
   });
 
-  return result.data.repositories ? 
+  return (result.data as any).repositories ? 
     // Format for listReposAccessibleToInstallation
-    (result.data.repositories as any[]).map(repo => ({
+    ((result.data as any).repositories as any[]).map(repo => ({
       id: repo.id,
       full_name: repo.full_name,
       default_branch: repo.default_branch,
@@ -388,9 +400,10 @@ export async function fetchUserRepos(octokit: any): Promise<GitHubRepo[]> {
 /**
  * Gets authenticated user info
  */
-export async function fetchAuthenticatedUser(octokit: Octokit) {
+export async function fetchAuthenticatedUser(octokit: any) {
+  const octo = normalizeOctokit(octokit);
   const result = await githubApiCall(async () => {
-    return await octokit.users.getAuthenticated();
+    return await octo.users.getAuthenticated();
   });
 
   return {
