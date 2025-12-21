@@ -233,33 +233,50 @@ ${recentPRs.map(pr => `- #${pr.number}: ${pr.title} (${pr.labels.join(', ')})`).
 Last Release:
 ${snapshot.releases[0] ? `${snapshot.releases[0].tag_name}: ${snapshot.releases[0].name}` : 'No releases found'}
 
-Create a Release Summary in this EXACT format:
+Create a Release Summary in this EXACT format. DO NOT add any content after the final code block.
 
 # Release Summary
 
 ## Features
-[New features and enhancements]
+[New features and enhancements - bullet points with commit SHAs]
 
 ## Fixes
-[Bug fixes and corrections]
+[Bug fixes and corrections - bullet points with commit SHAs]
 
 ## Internal
-[Refactoring, dependencies, tooling]
+[Refactoring, dependencies, tooling - keep brief]
 
 ## Breaking Changes
-[Any breaking changes - be explicit]
+[Any breaking changes - be explicit, or "None" if none]
 
 ## Upgrade Notes
-[What users need to do to upgrade]
+[What users need to do to upgrade, or "No action required" if none]
 
-## Copy-Ready GitHub Release
-\`\`\`markdown
-[Formatted release notes ready to paste]
+---
+
+**Copy-Ready Release Notes** (paste directly into GitHub Releases):
+
+\`\`\`
+# What's New
+
+## ✨ Features
+[Concise list for end users]
+
+## 🐛 Bug Fixes
+[Concise list for end users]
+
+## ⚠️ Breaking Changes
+[If any]
+
+---
+Full changelog: [link to commits]
 \`\`\`
 
-Use ${tone === 'detailed' ? 'complete technical detail' : 'concise bullet points'}.
-Reference commit SHAs and PR numbers.
-Identify breaking changes carefully.`;
+IMPORTANT:
+- Use ${tone === 'detailed' ? 'complete technical detail' : 'concise bullet points'}.
+- Reference commit SHAs in parentheses like (abc1234).
+- The code block above is the FINAL output. Do NOT write anything after it.
+- Keep "Internal" section brief - users care most about Features and Fixes.`;
 }
 
 /**
