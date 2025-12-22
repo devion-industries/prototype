@@ -15,7 +15,6 @@ export function getOpenAIClient(): OpenAI {
 
 export interface AIGenerationOptions {
   model?: string;
-  temperature?: number;
   maxTokens?: number;
 }
 
@@ -29,8 +28,7 @@ export async function generateText(
   const client = getOpenAIClient();
 
   const {
-    model = 'gpt-4-turbo',
-    temperature = 0.7,
+    model = 'gpt-4o-mini',
     maxTokens = 4000,
   } = options;
 
@@ -38,7 +36,6 @@ export async function generateText(
     async () => {
       const completion = await client.chat.completions.create({
         model,
-        temperature,
         max_tokens: maxTokens,
         messages: [
           {
