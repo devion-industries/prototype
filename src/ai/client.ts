@@ -29,7 +29,7 @@ export async function generateText(
   const client = getOpenAIClient();
 
   const {
-    model = 'gpt-4o-mini',
+    model = 'gpt-5-mini',
     temperature = 0.7,
     maxTokens = 4000,
   } = options;
