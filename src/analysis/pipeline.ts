@@ -123,6 +123,8 @@ async function sendJobNotifications(
   jobId: string
 ): Promise<void> {
   try {
+    console.log(`📬 Checking notifications for job ${jobId}, repo ${repoId}, user ${userId}`);
+    
     // Get repo settings
     const settingsResult = await db.query(
       `SELECT rs.*, r.full_name
@@ -132,16 +134,23 @@ async function sendJobNotifications(
       [repoId]
     );
 
-    if (settingsResult.rows.length === 0) return;
+    if (settingsResult.rows.length === 0) {
+      console.log('⚠️ No repo_settings found for repo:', repoId);
+      return;
+    }
 
     const settings = settingsResult.rows[0];
+    console.log(`📬 Settings found: notify_email=${settings.notify_email}, schedule=${settings.schedule}`);
 
     // Get user email
     const userResult = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
     const userEmail = userResult.rows[0]?.email;
+    console.log(`📬 User email: ${userEmail || 'NOT FOUND'}`);
 
     // Send email notification
     if (settings.notify_email && userEmail) {
+      console.log(`📧 Email notifications enabled, preparing to send to ${userEmail}...`);
+      
       // Fetch the maintainer_brief output for this job
       const briefResult = await db.query(
         `SELECT content_markdown FROM analysis_outputs 
@@ -150,6 +159,7 @@ async function sendJobNotifications(
       );
       
       const maintainerBrief = briefResult.rows[0]?.content_markdown || '';
+      console.log(`📧 Maintainer brief content length: ${maintainerBrief.length} chars`);
       
       // Build rich email with extracted content
       const briefData: WeeklyBriefData = {
@@ -167,10 +177,15 @@ async function sendJobNotifications(
         schedule: settings.schedule || 'weekly',
       };
       
+      console.log(`📧 Email data prepared: TL;DR items=${briefData.tldr.length}, Risky=${briefData.riskyChanges.length}, Actions=${briefData.suggestedActions.length}`);
+      
       const { subject, html } = buildWeeklyBriefEmail(briefData);
+      console.log(`📧 Email built, subject: "${subject}", HTML length: ${html.length} chars`);
       
       await sendHtmlEmail(userEmail, subject, html);
       console.log(`📧 Rich email notification sent to ${userEmail} for ${settings.full_name}`);
+    } else {
+      console.log(`📧 Skipping email: notify_email=${settings.notify_email}, userEmail=${userEmail || 'NOT SET'}`);
     }
 
     // Send Slack notification (basic for now)

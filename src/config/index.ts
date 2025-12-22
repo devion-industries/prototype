@@ -39,7 +39,7 @@ const configSchema = z.object({
 
   // Email (Resend)
   RESEND_API_KEY: z.string().optional(),
-  FROM_EMAIL: z.string().default('RepoMind <onboarding@resend.dev>'),
+  FROM_EMAIL: z.string().default('RepoMind <noreply@updates.devion.dev>'),
 
   // Rate Limiting
   RATE_LIMIT_MAX: z.string().transform(Number).default('100'),
