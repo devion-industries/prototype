@@ -15,7 +15,6 @@ export function getOpenAIClient(): OpenAI {
 
 export interface AIGenerationOptions {
   model?: string;
-  temperature?: number;
   maxTokens?: number;
 }
 
@@ -30,7 +29,6 @@ export async function generateText(
 
   const {
     model = 'gpt-5-mini',
-    temperature = 0.7,
     maxTokens = 4000,
   } = options;
 
@@ -38,7 +36,6 @@ export async function generateText(
     async () => {
       const completion = await client.chat.completions.create({
         model,
-        temperature,
         max_completion_tokens: maxTokens,
         messages: [
           {
