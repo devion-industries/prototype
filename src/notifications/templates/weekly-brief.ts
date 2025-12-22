@@ -42,11 +42,16 @@ export function buildWeeklyBriefEmail(data: WeeklyBriefData): { subject: string;
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                      <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
-                        <span style="font-size: 24px;">📋</span>
-                      </div>
-                    </div>
+                    <table cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                      <tr>
+                        <td style="width: 44px; height: 44px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 12px; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 20px; line-height: 44px;">🧠</span>
+                        </td>
+                        <td style="padding-left: 12px; vertical-align: middle;">
+                          <span style="font-size: 18px; font-weight: 700; color: #1e293b;">RepoMind</span>
+                        </td>
+                      </tr>
+                    </table>
                     <div style="font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
                       ${frequency} Brief
                     </div>
