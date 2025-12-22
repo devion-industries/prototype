@@ -220,6 +220,46 @@ export default async function reposRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
+  /**
+   * DELETE /repos/:repoId
+   * Removes a repository and all associated data
+   * Accepts either database UUID or GitHub repo ID
+   */
+  fastify.delete('/repos/:repoId', requireAuth(), async (request, reply) => {
+    const req = request as AuthenticatedRequest;
+    const { repoId } = request.params as { repoId: string };
+
+    // Resolve repoId to database UUID (handles both UUID and GitHub ID)
+    const resolvedRepoId = await resolveRepoId(req.userId, repoId);
+    
+    if (!resolvedRepoId) {
+      return reply.status(403).send({ error: 'Access denied' });
+    }
+
+    try {
+      // Delete the repo (cascades to settings, jobs, outputs due to ON DELETE CASCADE)
+      const result = await db.query(
+        'DELETE FROM repos WHERE id = $1 AND user_id = $2 RETURNING id, full_name',
+        [resolvedRepoId, req.userId]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.status(404).send({ error: 'Repository not found' });
+      }
+
+      return reply.send({ 
+        success: true, 
+        message: `Repository ${result.rows[0].full_name} removed successfully` 
+      });
+    } catch (error: any) {
+      console.error('Delete repo error:', error);
+      return reply.status(500).send({
+        error: 'Failed to remove repository',
+        message: error.message,
+      });
+    }
+  });
 }
 
 
