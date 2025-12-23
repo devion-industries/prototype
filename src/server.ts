@@ -13,6 +13,7 @@ import reposRoutes from './routes/repos';
 import jobsRoutes from './routes/jobs';
 import outputsRoutes from './routes/outputs';
 import exportsRoutes from './routes/exports';
+import accountRoutes from './routes/account';
 
 // Workers - embedded in same process for simplified deployment
 import { analysisWorker, exportWorker } from './queue/worker';
@@ -83,6 +84,7 @@ async function start() {
     await fastify.register(jobsRoutes);
     await fastify.register(outputsRoutes);
     await fastify.register(exportsRoutes);
+    await fastify.register(accountRoutes);
 
     // Error handler
     fastify.setErrorHandler((error, _request, reply) => {
