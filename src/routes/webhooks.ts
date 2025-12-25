@@ -74,6 +74,20 @@ async function handleInstallation(payload: any) {
   console.log('Installation event:', action);
 
   if (action === 'deleted') {
+    // First, find the user associated with this installation
+    const userResult = await db.query(
+      'SELECT user_id FROM github_accounts WHERE installation_id = $1',
+      [installation.id]
+    );
+    
+    if (userResult.rows.length > 0) {
+      const userId = userResult.rows[0].user_id;
+      
+      // Delete all repos for this user (cascade will handle jobs, outputs, settings)
+      await db.query('DELETE FROM repos WHERE user_id = $1', [userId]);
+      console.log(`Deleted repos for user ${userId}`);
+    }
+    
     // Remove installation from database
     await db.query(
       'DELETE FROM github_accounts WHERE installation_id = $1',
