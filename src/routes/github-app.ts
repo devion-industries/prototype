@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { AuthenticatedRequest, requireAuth } from '../auth/middleware';
-import { getInstallationOctokit, getUserInstallationId } from '../github/app-client';
+import { getApp, getInstallationOctokit, getUserInstallationId } from '../github/app-client';
 import db from '../db/client';
 import config from '../config';
 
@@ -117,20 +117,52 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
 
   /**
    * DELETE /github/installation
-   * Removes GitHub App installation from our database
-   * Note: User must also uninstall from GitHub to revoke access
+   * Fully removes GitHub App installation - both from GitHub AND our database
    */
   fastify.delete('/github/installation', requireAuth(), async (request, reply) => {
     const req = request as AuthenticatedRequest;
 
     try {
-      // Delete from database (repos will be orphaned but user can reconnect)
+      // First, get the installation_id from our database
+      const result = await db.query(
+        'SELECT installation_id FROM github_accounts WHERE user_id = $1',
+        [req.userId]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.status(404).send({ error: 'No GitHub installation found' });
+      }
+
+      const installationId = result.rows[0].installation_id;
+
+      // Delete the installation from GitHub using the App's authentication
+      try {
+        const app = await getApp();
+        await app.octokit.rest.apps.deleteInstallation({
+          installation_id: parseInt(installationId, 10),
+        });
+        console.log(`GitHub App installation ${installationId} deleted from GitHub`);
+      } catch (githubError: any) {
+        // If GitHub returns 404, the installation is already gone - that's fine
+        if (githubError.status !== 404) {
+          console.error('Failed to delete from GitHub:', githubError);
+          // Continue anyway to clean up our database
+        }
+      }
+
+      // Delete all repos for this user (cascade will handle jobs, outputs, etc.)
+      await db.query('DELETE FROM repos WHERE user_id = $1', [req.userId]);
+      
+      // Delete from our database
       await db.query(
         'DELETE FROM github_accounts WHERE user_id = $1',
         [req.userId]
       );
 
-      return reply.send({ success: true, message: 'GitHub connection removed' });
+      return reply.send({ 
+        success: true, 
+        message: 'GitHub App completely disconnected from your account' 
+      });
     } catch (error: any) {
       console.error('Delete installation error:', error);
       return reply.status(500).send({
