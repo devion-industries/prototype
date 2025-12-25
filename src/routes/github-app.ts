@@ -151,18 +151,22 @@ export default async function githubAppRoutes(fastify: FastifyInstance) {
     try {
       // Get user's installation ID
       const installationId = await getUserInstallationId(req.userId, db);
+      console.log('getUserInstallationId result:', { userId: req.userId, installationId });
       
       if (!installationId) {
         return reply.status(404).send({ error: 'No GitHub App installation found' });
       }
 
       // Get Octokit for this installation
+      console.log('Getting octokit for installation:', installationId);
       const octokit = await getInstallationOctokit(installationId);
 
       // List repositories accessible to this installation
+      console.log('Fetching repos from GitHub API...');
       const { data } = await octokit.rest.apps.listReposAccessibleToInstallation({
         per_page: 100,
       });
+      console.log('GitHub API returned:', { total_count: data.total_count, repos_count: data.repositories?.length });
 
       // If available=true, filter out already connected repos
       let repos = data.repositories.map((repo: any) => ({
