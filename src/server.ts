@@ -49,12 +49,17 @@ async function start() {
           cb(null, true);
           return;
         }
+        // Allow devion.dev production domains
+        if (origin === 'https://devion.dev' || origin === 'https://www.devion.dev') {
+          cb(null, true);
+          return;
+        }
         // Allow all Vercel preview deployments for this project
         if (origin.match(/^https:\/\/repo-insights-[a-z0-9]+-developmentdevion-gmailcoms-projects\.vercel\.app$/)) {
           cb(null, true);
           return;
         }
-        // Allow the stable production alias
+        // Allow the stable production alias (legacy)
         if (origin === 'https://repo-insights-rho.vercel.app') {
           cb(null, true);
           return;
