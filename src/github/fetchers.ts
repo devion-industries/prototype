@@ -46,8 +46,6 @@ export interface GitHubIssue {
   labels: string[];
   created_at: string;
   comments: number;
-  reactions?: number;
-  author?: string;
 }
 
 export interface GitHubRelease {
@@ -61,8 +59,7 @@ export interface RepoSnapshot {
   repo: GitHubRepo;
   commits: GitHubCommit[];
   prs: GitHubPR[];
-  issues: GitHubIssue[];  // Good first issues (legacy)
-  allIssues: GitHubIssue[];  // ALL open issues for triage
+  issues: GitHubIssue[];
   releases: GitHubRelease[];
   readme: string | null;
   contributing: string | null;
@@ -232,48 +229,6 @@ export async function fetchGoodFirstIssues(
 }
 
 /**
- * Fetches ALL open issues for triage analysis
- */
-export async function fetchAllOpenIssues(
-  octokit: any,
-  owner: string,
-  repo: string,
-  limit: number = 100
-): Promise<GitHubIssue[]> {
-  const octo = normalizeOctokit(octokit);
-  
-  try {
-    const result = await githubApiCall(async () => {
-      return await octo.issues.listForRepo({
-        owner,
-        repo,
-        state: 'open',
-        sort: 'updated',
-        direction: 'desc',
-        per_page: limit,
-      });
-    });
-
-    return result.data
-      .filter((issue: any) => !issue.pull_request) // Exclude PRs
-      .map((issue: any) => ({
-        number: issue.number,
-        title: issue.title,
-        state: issue.state,
-        body: issue.body || null,
-        labels: issue.labels.map((l: any) => typeof l === 'string' ? l : l.name || ''),
-        created_at: issue.created_at,
-        comments: issue.comments,
-        reactions: issue.reactions?.total_count || 0,
-        author: issue.user?.login || 'Unknown',
-      }));
-  } catch (error) {
-    console.warn('Failed to fetch all issues:', error);
-    return [];
-  }
-}
-
-/**
  * Fetches recent releases
  */
 export async function fetchRecentReleases(
@@ -366,14 +321,12 @@ export async function fetchRepoSnapshot(
   ignorePaths: string[] = []
 ): Promise<RepoSnapshot> {
   const commitLimit = depth === 'deep' ? 200 : 50;
-  const issueLimit = depth === 'deep' ? 100 : 50;
 
   const [
     repoData,
     commits,
     prs,
     issues,
-    allIssues,
     releases,
     readme,
     contributing,
@@ -382,7 +335,6 @@ export async function fetchRepoSnapshot(
     fetchRecentCommits(octokit, owner, repo, branch, commitLimit, ignorePaths),
     fetchRecentPRs(octokit, owner, repo, depth === 'deep' ? 60 : 30),
     fetchGoodFirstIssues(octokit, owner, repo),
-    fetchAllOpenIssues(octokit, owner, repo, issueLimit),
     fetchRecentReleases(octokit, owner, repo),
     fetchReadme(octokit, owner, repo),
     fetchContributing(octokit, owner, repo),
@@ -393,7 +345,6 @@ export async function fetchRepoSnapshot(
     commits,
     prs,
     issues,
-    allIssues,
     releases,
     readme,
     contributing,

@@ -7,7 +7,6 @@ export interface WeeklyBriefData {
   tldr: string[];
   riskyChanges: string[];
   suggestedActions: string[];
-  criticalIssues: string[];
   schedule: 'weekly' | 'biweekly' | 'manual';
 }
 
@@ -120,24 +119,6 @@ export function buildWeeklyBriefEmail(data: WeeklyBriefData): { subject: string;
                 </tr>
                 ` : ''}
 
-                ${data.criticalIssues && data.criticalIssues.length > 0 ? `
-                <!-- Critical Issues -->
-                <tr>
-                  <td style="padding: 0 28px 24px 28px;">
-                    <div style="background-color: #fef3c7; border-radius: 8px; padding: 16px; border: 1px solid #fcd34d;">
-                      <div style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-                        🔴 Priority Issues
-                      </div>
-                      ${data.criticalIssues.slice(0, 3).map(item => `
-                      <div style="padding: 6px 0; color: #78350f; font-size: 13px; line-height: 1.4;">
-                        • ${escapeHtml(item)}
-                      </div>
-                      `).join('')}
-                    </div>
-                  </td>
-                </tr>
-                ` : ''}
-
                 <!-- CTA Button -->
                 <tr>
                   <td style="padding: 4px 28px 28px 28px;">
@@ -237,36 +218,4 @@ export function extractSuggestedActions(markdown: string): string[] {
   if (!items) return [];
   
   return items.slice(0, 3).map(item => item.replace(/^(?:\d+\.\s*|[-•*]\s*)/, '').trim());
-}
-
-/**
- * Extracts critical/high priority issues from issue triage markdown
- */
-export function extractCriticalIssues(markdown: string): string[] {
-  if (!markdown) return [];
-  
-  // Look for Critical Priority section
-  const criticalMatch = markdown.match(/##\s*🔴\s*Critical Priority\s*\n([\s\S]*?)(?=\n##|$)/i);
-  const highMatch = markdown.match(/##\s*🟠\s*High Priority\s*\n([\s\S]*?)(?=\n##|$)/i);
-  
-  const issues: string[] = [];
-  
-  // Extract issue titles from h3 headers (### #123: Title format)
-  const extractIssues = (content: string) => {
-    const issueMatches = content.match(/###\s*#?\d+:?\s*(.+)/g);
-    if (issueMatches) {
-      return issueMatches.map(m => m.replace(/^###\s*/, '').trim());
-    }
-    return [];
-  };
-  
-  if (criticalMatch) {
-    issues.push(...extractIssues(criticalMatch[1]));
-  }
-  
-  if (highMatch && issues.length < 3) {
-    issues.push(...extractIssues(highMatch[1]));
-  }
-  
-  return issues.slice(0, 3);
 }
