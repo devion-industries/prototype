@@ -12,7 +12,7 @@ export interface WeeklyBriefData {
 
 /**
  * Builds the HTML email for weekly/biweekly maintainer brief
- * Light theme matching the RepoMind platform UI
+ * Modern design matching the Devion platform
  */
 export function buildWeeklyBriefEmail(data: WeeklyBriefData): { subject: string; html: string } {
   const frontendUrl = config.FRONTEND_URL;
@@ -20,7 +20,7 @@ export function buildWeeklyBriefEmail(data: WeeklyBriefData): { subject: string;
   const settingsUrl = `${frontendUrl}/repo/${data.repoId}/settings`;
   const frequency = data.schedule === 'biweekly' ? 'Bi-weekly' : 'Weekly';
 
-  const subject = `${frequency} Brief: ${data.repoFullName} - ${data.date}`;
+  const subject = `${data.repoFullName} — ${frequency} Brief`;
 
   const html = `
 <!DOCTYPE html>
@@ -30,147 +30,119 @@ export function buildWeeklyBriefEmail(data: WeeklyBriefData): { subject: string;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${subject}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); overflow: hidden;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px;">
           
-          <!-- Header -->
+          <!-- Logo Header -->
           <tr>
-            <td style="padding: 32px 32px 24px 32px; border-bottom: 1px solid #e2e8f0;">
-              <table width="100%" cellpadding="0" cellspacing="0">
+            <td align="center" style="padding-bottom: 24px;">
+              <span style="font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px;">Devion</span>
+            </td>
+          </tr>
+
+          <!-- Main Card -->
+          <tr>
+            <td>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+                
+                <!-- Header -->
                 <tr>
-                  <td>
-                    <table cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
-                      <tr>
-                        <td style="width: 44px; height: 44px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 12px; text-align: center; vertical-align: middle;">
-                          <span style="font-size: 20px; line-height: 44px;">🧠</span>
-                        </td>
-                        <td style="padding-left: 12px; vertical-align: middle;">
-                          <span style="font-size: 18px; font-weight: 700; color: #1e293b;">RepoMind</span>
-                        </td>
-                      </tr>
-                    </table>
-                    <div style="font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
+                  <td style="padding: 28px 28px 20px 28px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
                       ${frequency} Brief
                     </div>
-                    <div style="font-size: 16px; color: #475569; font-weight: 500;">
+                    <div style="font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
                       ${data.repoFullName}
                     </div>
-                    <div style="font-size: 14px; color: #94a3b8; margin-top: 4px;">
+                    <div style="font-size: 14px; color: #64748b;">
                       ${data.date}
                     </div>
                   </td>
                 </tr>
-              </table>
-            </td>
-          </tr>
 
-          <!-- TL;DR Section -->
-          <tr>
-            <td style="padding: 24px 32px;">
-              <div style="font-size: 12px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">
-                TL;DR
-              </div>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                ${data.tldr.map(item => `
+                <!-- Divider -->
                 <tr>
-                  <td style="padding: 10px 0; color: #334155; font-size: 15px; line-height: 1.6;">
-                    <span style="color: #6366f1; margin-right: 10px; font-weight: 600;">•</span>
-                    ${escapeHtml(item)}
+                  <td style="padding: 0 28px;">
+                    <div style="height: 1px; background-color: #e2e8f0;"></div>
                   </td>
                 </tr>
-                `).join('')}
-              </table>
-            </td>
-          </tr>
 
-          ${data.riskyChanges.length > 0 ? `
-          <!-- Risky Changes Section -->
-          <tr>
-            <td style="padding: 0 32px 24px 32px;">
-              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 20px;">
-                <div style="font-size: 12px; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">
-                  ⚠️ Risky Changes
-                </div>
-                <table width="100%" cellpadding="0" cellspacing="0">
-                  ${data.riskyChanges.map(item => `
-                  <tr>
-                    <td style="padding: 8px 0; color: #991b1b; font-size: 14px; line-height: 1.5;">
-                      • ${escapeHtml(item)}
-                    </td>
-                  </tr>
-                  `).join('')}
-                </table>
-              </div>
-            </td>
-          </tr>
-          ` : ''}
-
-          ${data.suggestedActions.length > 0 ? `
-          <!-- Suggested Actions Section -->
-          <tr>
-            <td style="padding: 0 32px 24px 32px;">
-              <div style="font-size: 12px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">
-                ✅ Suggested Actions
-              </div>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                ${data.suggestedActions.slice(0, 3).map((item, idx) => `
+                <!-- TL;DR Section -->
                 <tr>
-                  <td style="padding: 10px 0; color: #334155; font-size: 14px; line-height: 1.5;">
-                    <span style="display: inline-block; width: 26px; height: 26px; background-color: #f1f5f9; border-radius: 50%; text-align: center; line-height: 26px; font-size: 13px; font-weight: 600; color: #64748b; margin-right: 12px;">${idx + 1}</span>
-                    ${escapeHtml(item)}
+                  <td style="padding: 24px 28px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                      Summary
+                    </div>
+                    ${data.tldr.map(item => `
+                    <div style="padding: 8px 0; color: #334155; font-size: 14px; line-height: 1.5;">
+                      <span style="color: #3b82f6; margin-right: 8px;">→</span>${escapeHtml(item)}
+                    </div>
+                    `).join('')}
                   </td>
                 </tr>
-                `).join('')}
-              </table>
-            </td>
-          </tr>
-          ` : ''}
 
-          <!-- CTA Buttons -->
-          <tr>
-            <td style="padding: 8px 32px 32px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
+                ${data.riskyChanges.length > 0 ? `
+                <!-- Risky Changes -->
                 <tr>
-                  <td style="padding-right: 8px; width: 50%;">
-                    <a href="${briefUrl}" style="display: block; text-align: center; padding: 14px 24px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 14px;">
-                      View Full Brief
-                    </a>
+                  <td style="padding: 0 28px 24px 28px;">
+                    <div style="background-color: #fef2f2; border-radius: 8px; padding: 16px;">
+                      <div style="font-size: 11px; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                        Needs Attention
+                      </div>
+                      ${data.riskyChanges.map(item => `
+                      <div style="padding: 6px 0; color: #991b1b; font-size: 13px; line-height: 1.4;">
+                        • ${escapeHtml(item)}
+                      </div>
+                      `).join('')}
+                    </div>
                   </td>
-                  <td style="padding-left: 8px; width: 50%;">
-                    <a href="${briefUrl}?tab=issues" style="display: block; text-align: center; padding: 14px 24px; background-color: #f1f5f9; color: #334155; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid #e2e8f0;">
-                      Good First Issues
+                </tr>
+                ` : ''}
+
+                ${data.suggestedActions.length > 0 ? `
+                <!-- Actions -->
+                <tr>
+                  <td style="padding: 0 28px 24px 28px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                      Suggested Actions
+                    </div>
+                    ${data.suggestedActions.slice(0, 3).map((item, idx) => `
+                    <div style="padding: 8px 0; color: #334155; font-size: 13px; line-height: 1.4; display: flex; align-items: flex-start;">
+                      <span style="display: inline-block; min-width: 20px; height: 20px; background-color: #f1f5f9; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: 600; color: #64748b; margin-right: 10px;">${idx + 1}</span>
+                      ${escapeHtml(item)}
+                    </div>
+                    `).join('')}
+                  </td>
+                </tr>
+                ` : ''}
+
+                <!-- CTA Button -->
+                <tr>
+                  <td style="padding: 4px 28px 28px 28px;">
+                    <a href="${briefUrl}" style="display: block; text-align: center; padding: 14px 24px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                      View Full Analysis →
                     </a>
                   </td>
                 </tr>
+
               </table>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 32px; border-top: 1px solid #e2e8f0; background-color: #f8fafc;">
-              <div style="font-size: 13px; color: #64748b; line-height: 1.6;">
-                You're receiving this because you enabled ${data.schedule} delivery for <strong style="color: #475569;">${data.repoFullName}</strong>.
+            <td style="padding: 24px 0; text-align: center;">
+              <div style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                ${data.schedule === 'manual' ? 'You ran this analysis manually.' : `You're receiving ${data.schedule} briefs for this repo.`}
                 <br>
-                <a href="${settingsUrl}" style="color: #6366f1; text-decoration: none; font-weight: 500;">Manage notification settings →</a>
+                <a href="${settingsUrl}" style="color: #64748b; text-decoration: underline;">Manage settings</a>
               </div>
             </td>
           </tr>
 
-        </table>
-        
-        <!-- Logo/Brand -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin-top: 24px;">
-          <tr>
-            <td align="center">
-              <div style="font-size: 14px; color: #94a3b8;">
-                Powered by <strong style="color: #6366f1;">RepoMind</strong>
-              </div>
-            </td>
-          </tr>
         </table>
       </td>
     </tr>
