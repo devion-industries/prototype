@@ -11,6 +11,7 @@ import {
   extractTldr, 
   extractRiskyChanges, 
   extractSuggestedActions,
+  extractCriticalIssues,
   WeeklyBriefData 
 } from '../notifications/templates/weekly-brief';
 import db from '../db/client';
@@ -151,15 +152,17 @@ async function sendJobNotifications(
     if (settings.notify_email && userEmail) {
       console.log(`📧 Email notifications enabled, preparing to send to ${userEmail}...`);
       
-      // Fetch the maintainer_brief output for this job
-      const briefResult = await db.query(
-        `SELECT content_markdown FROM analysis_outputs 
-         WHERE job_id = $1 AND type = 'maintainer_brief'`,
+      // Fetch the maintainer_brief and issue_triage outputs for this job
+      const outputsResult = await db.query(
+        `SELECT type, content_markdown FROM analysis_outputs 
+         WHERE job_id = $1 AND type IN ('maintainer_brief', 'issue_triage')`,
         [jobId]
       );
       
-      const maintainerBrief = briefResult.rows[0]?.content_markdown || '';
+      const maintainerBrief = outputsResult.rows.find(r => r.type === 'maintainer_brief')?.content_markdown || '';
+      const issueTriage = outputsResult.rows.find(r => r.type === 'issue_triage')?.content_markdown || '';
       console.log(`📧 Maintainer brief content length: ${maintainerBrief.length} chars`);
+      console.log(`📧 Issue triage content length: ${issueTriage.length} chars`);
       
       // Build rich email with extracted content
       const briefData: WeeklyBriefData = {
@@ -174,6 +177,7 @@ async function sendJobNotifications(
         tldr: extractTldr(maintainerBrief),
         riskyChanges: extractRiskyChanges(maintainerBrief),
         suggestedActions: extractSuggestedActions(maintainerBrief),
+        criticalIssues: extractCriticalIssues(issueTriage),
         schedule: settings.schedule || 'weekly',
       };
       

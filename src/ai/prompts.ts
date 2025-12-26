@@ -426,6 +426,165 @@ IMPORTANT RULES:
 }
 
 /**
+ * Builds prompt for Issue Triage Report
+ */
+export function buildIssueTriagePrompt(
+  snapshot: RepoSnapshot,
+  tone: 'concise' | 'detailed'
+): string {
+  const allIssues = snapshot.allIssues || [];
+  
+  if (allIssues.length === 0) {
+    return `No open issues found in repository ${snapshot.repo.full_name}. Generate a brief message explaining that there are no issues to triage.`;
+  }
+
+  // Calculate issue age
+  const now = new Date();
+  const issuesWithAge = allIssues.map(issue => {
+    const created = new Date(issue.created_at);
+    const ageInDays = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    return { ...issue, ageInDays };
+  });
+
+  // Sort by reactions + comments (engagement) for prioritization hints
+  const sortedByEngagement = [...issuesWithAge].sort((a, b) => 
+    ((b.reactions || 0) + b.comments) - ((a.reactions || 0) + a.comments)
+  );
+
+  // Find stale issues (>90 days with no recent activity)
+  const staleIssues = issuesWithAge.filter(i => i.ageInDays > 90);
+
+  // Recent commit patterns to understand current focus
+  const recentCommitMessages = snapshot.commits.slice(0, 20)
+    .map(c => c.message.split('\n')[0])
+    .join('\n');
+
+  return `You are an expert project manager analyzing GitHub issues to help maintainers prioritize their backlog.
+
+Repository: ${snapshot.repo.full_name}
+Language: ${snapshot.repo.language || 'Multiple'}
+Total Open Issues: ${allIssues.length}
+Stale Issues (>90 days): ${staleIssues.length}
+
+===== ALL OPEN ISSUES =====
+
+${issuesWithAge.slice(0, 50).map(issue => `
+#${issue.number}: ${issue.title}
+- Labels: ${issue.labels.length > 0 ? issue.labels.join(', ') : 'none'}
+- Age: ${issue.ageInDays} days
+- Comments: ${issue.comments}
+- Reactions: ${issue.reactions || 0}
+- Author: @${issue.author || 'unknown'}
+${issue.body ? `- Description: ${issue.body.slice(0, 300)}${issue.body.length > 300 ? '...' : ''}` : '- No description'}
+`).join('\n---\n')}
+
+===== RECENT DEVELOPMENT CONTEXT =====
+
+Recent commits show the team is working on:
+${recentCommitMessages}
+
+Recent PRs:
+${snapshot.prs.slice(0, 10).map(pr => `- #${pr.number}: ${pr.title}`).join('\n')}
+
+===== HIGHEST ENGAGEMENT ISSUES =====
+
+Top issues by community interest (reactions + comments):
+${sortedByEngagement.slice(0, 5).map(i => `- #${i.number}: ${i.title} (${(i.reactions || 0) + i.comments} engagement)`).join('\n')}
+
+===== GENERATE THIS EXACT FORMAT =====
+
+# Issue Triage Report
+
+> **${allIssues.length} open issues analyzed** • Generated ${new Date().toLocaleDateString()}
+
+---
+
+## 🔴 Critical Priority
+[Issues that are blocking, security-related, or affecting many users]
+[For each issue, explain WHY it's critical]
+
+${tone === 'detailed' ? 'Include 3-5 issues with full reasoning' : 'Include 2-3 issues'}
+
+Format for each:
+### #[number]: [title]
+**Why Critical:** [1-2 sentences explaining impact]
+**Suggested Action:** [What maintainer should do]
+**Labels to Add:** [Suggest appropriate labels if missing]
+
+---
+
+## 🟠 High Priority
+[Important issues that should be addressed soon - feature requests with high demand, significant bugs]
+
+${tone === 'detailed' ? 'Include 4-6 issues' : 'Include 2-4 issues'}
+
+Format for each:
+### #[number]: [title]
+**Why Important:** [1 sentence]
+**Effort Estimate:** Low/Medium/High
+**Suggested Action:** [Brief action]
+
+---
+
+## 🟡 Medium Priority
+[Good to fix but not urgent - smaller bugs, enhancements, documentation]
+
+${tone === 'detailed' ? 'Include 5-8 issues' : 'Include 3-5 issues'}
+
+Format for each:
+- **#[number]**: [title] — [1 sentence summary] • Effort: [Low/Med/High]
+
+---
+
+## ⚪ Low Priority / Backlog
+[Nice to have, long-term ideas, minor improvements]
+
+${tone === 'detailed' ? 'Include remaining issues' : 'Include 3-5 issues'}
+
+Format: Brief list with issue numbers and titles
+
+---
+
+## 🗑️ Recommend Closing
+[Issues that should be closed - stale with no activity, duplicates, won't fix, already resolved]
+
+${staleIssues.length > 0 ? `
+Found ${staleIssues.length} stale issues (>90 days old). Review these for closure:
+` : 'No obviously stale issues found.'}
+
+For each:
+- **#[number]**: [title] — **Reason:** [duplicate of #X / stale / wont fix / resolved]
+
+---
+
+## 📊 Backlog Health Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Open | ${allIssues.length} |
+| Critical | [count] |
+| Stale (>90d) | ${staleIssues.length} |
+| Unlabeled | [count issues with no labels] |
+| Avg Age | [calculate] days |
+
+**Recommendations:**
+1. [Top recommendation based on analysis]
+2. [Second recommendation]
+3. [Third recommendation]
+
+---
+
+IMPORTANT RULES:
+1. Every issue you mention MUST use the exact issue number from the data
+2. Base priority on: user impact, engagement (reactions+comments), alignment with recent development
+3. Be specific about WHY each issue has its priority level
+4. If an issue seems like a duplicate, mention it
+5. Consider issue age - very old issues with no activity may need closure
+6. Look at labels to understand existing categorization
+7. Suggest missing labels where appropriate`;
+}
+
+/**
  * Helper: Analyze file churn
  */
 function analyzeFileChurn(commits: any[]): Record<string, number> {

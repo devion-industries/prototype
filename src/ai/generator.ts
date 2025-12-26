@@ -4,11 +4,12 @@ import {
   buildContributorQuickstartPrompt,
   buildReleaseSummaryPrompt,
   buildGoodFirstIssuesPrompt,
+  buildIssueTriagePrompt,
 } from './prompts';
 import { RepoSnapshot } from '../github/fetchers';
 
 export interface AnalysisOutput {
-  type: 'maintainer_brief' | 'contributor_quickstart' | 'release_summary' | 'good_first_issues';
+  type: 'maintainer_brief' | 'contributor_quickstart' | 'release_summary' | 'good_first_issues' | 'issue_triage';
   content: string;
   confidence: number;
   sources: {
@@ -19,7 +20,7 @@ export interface AnalysisOutput {
 }
 
 /**
- * Generates all 4 analysis outputs for a repository
+ * Generates all 5 analysis outputs for a repository
  */
 export async function generateAllOutputs(
   snapshot: RepoSnapshot,
@@ -33,15 +34,16 @@ export async function generateAllOutputs(
   const sources = {
     commits: snapshot.commits.slice(0, 50).map(c => c.sha),
     prs: snapshot.prs.slice(0, 30).map(pr => pr.number),
-    issues: snapshot.issues.map(i => i.number),
+    issues: [...snapshot.issues.map(i => i.number), ...(snapshot.allIssues || []).map(i => i.number)],
   };
 
   // Generate all outputs in parallel
-  const [maintainerBrief, contributorQuickstart, releaseSummary, goodFirstIssues] = await Promise.all([
+  const [maintainerBrief, contributorQuickstart, releaseSummary, goodFirstIssues, issueTriage] = await Promise.all([
     generateMaintainerBrief(snapshot, tone),
     generateContributorQuickstart(snapshot, tone),
     generateReleaseSummary(snapshot, tone),
     generateGoodFirstIssues(snapshot, tone),
+    generateIssueTriage(snapshot, tone),
   ]);
 
   return [
@@ -67,6 +69,12 @@ export async function generateAllOutputs(
       type: 'good_first_issues',
       content: goodFirstIssues,
       confidence: calculateConfidence(snapshot, 'good_first_issues'),
+      sources,
+    },
+    {
+      type: 'issue_triage',
+      content: issueTriage,
+      confidence: calculateConfidence(snapshot, 'issue_triage'),
       sources,
     },
   ];
@@ -104,6 +112,14 @@ async function generateGoodFirstIssues(
   return await generateText(prompt, { maxTokens: tone === 'detailed' ? 2500 : 1500 });
 }
 
+async function generateIssueTriage(
+  snapshot: RepoSnapshot,
+  tone: 'concise' | 'detailed'
+): Promise<string> {
+  const prompt = buildIssueTriagePrompt(snapshot, tone);
+  return await generateText(prompt, { maxTokens: tone === 'detailed' ? 3500 : 2500 });
+}
+
 /**
  * Calculates confidence score based on data quality
  */
@@ -133,6 +149,13 @@ function calculateConfidence(
 
   if (outputType === 'release_summary') {
     if (snapshot.releases.length > 0) score += 0.05;
+  }
+
+  if (outputType === 'issue_triage') {
+    const allIssues = snapshot.allIssues || [];
+    if (allIssues.length >= 20) score += 0.2;
+    else if (allIssues.length >= 10) score += 0.1;
+    else if (allIssues.length === 0) score -= 0.3;
   }
 
   // Clamp to [0, 1]
